@@ -46,7 +46,10 @@ const ACTION_CUES = [
   "练", "训练", "游泳", "跑步", "慢跑", "骑行", "跳绳", "瑜伽",
   "拉伸", "热身", "深蹲", "平板支撑", "快走", "修改", "订正",
   "睡觉", "保持", "测", "学", "挑", "练习", "刷题", "复盘",
-  "临摹", "投"
+  "临摹", "投", "补", "列", "分配", "改错", "浏览", "打勾",
+  "调整", "走", "骑", "恢复", "增加", "拆装", "模拟", "临帖",
+  "拍", "选片", "压腿", "改稿", "计时", "录像", "记录", "翻",
+  "标出", "调", "减重"
 ];
 
 const AUTONOMOUS_TASKS = [
@@ -260,7 +263,7 @@ function normalize(text) {
 
 function prepareDialogueText(text) {
   const roles =
-    "A|B|甲|乙|老师|学生|教练|学员|问|答|主持人|记者|我|你";
+    "A|B|甲|乙|老师|学生|教练|学员|问|答|主持人|记者|受访者|运动员|嘉宾|跑者|舞者|棋手|乐手|求职者|我|你";
   const dialogue = String(text || "")
     .replace(
       new RegExp(`(^|\\n)\\s*(?:${roles})\\s*[：:]\\s*`, "gu"),
@@ -550,7 +553,9 @@ function shouldStartNewCommaClause(text) {
     "背", "读", "写", "做", "练", "训练", "游泳", "跑步", "慢跑",
     "快走", "骑行", "跳绳", "瑜伽", "拉伸", "热身", "深蹲",
     "平板支撑", "修改", "订正", "睡觉", "保持", "测", "学", "挑",
-    "复盘", "临摹", "投"
+    "复盘", "临摹", "投", "补", "列", "分配", "改错", "浏览",
+    "打勾", "调整", "走", "骑", "恢复", "增加", "拆装", "模拟",
+    "临帖", "拍", "选片", "压腿", "改稿", "计时", "录像", "记录"
   ];
   const datePrefixes = [
     "今天", "明天", "后天", "大后天", "下周", "本周", "这周",
@@ -696,6 +701,8 @@ function summarizeStudyObjectTask(text, { subject, action } = {}) {
 function detectStudyAction(text) {
   if (/预习/u.test(text)) return "预习";
   if (/(?:复习|温习)/u.test(text)) return "复习";
+  if (/修改/u.test(text)) return "修改";
+  if (/(?:订正|改正)/u.test(text)) return "订正";
   if (/默写/u.test(text)) return "默写";
   if (/抄写/u.test(text)) return "抄写";
   if (/(?:背诵|背)/u.test(text)) return "背";
@@ -755,7 +762,9 @@ function summarizeMistakes(text) {
   const wantsReview = /(?:看看|查看|有哪些|有什么)/.test(text);
   const wantsCorrection = /(?:订正|改正)/.test(text);
   const wantsSelection = /(?:挑|选)/.test(text);
+  const wantsNotebook = /(?:翻|标出).*(?:错题本|重复错误)/.test(text);
 
+  if (wantsNotebook) return [`整理${subject || ""}错题本`];
   if (wantsCorrection) return [`订正${subject || ""}错题`];
   if (wantsSelection) {
     const important = /高频/.test(text) ? "高频" : "";
