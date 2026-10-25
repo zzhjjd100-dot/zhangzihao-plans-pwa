@@ -279,12 +279,39 @@ summary:focus-visible {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 0;
   border-bottom: 1px solid var(--border);
   background: transparent;
   text-align: left;
+}
+
+.day-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.day-card-open {
+  display: grid;
+  width: 38px;
+  height: 42px;
+  flex: 0 0 auto;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.day-card-open:active,
+.day-toggle:active {
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .day-card-date {
@@ -314,10 +341,29 @@ summary:focus-visible {
   font-size: 9.5px;
 }
 
-.day-card-header .icon {
+.day-card-open .icon {
   width: 13px;
   height: 13px;
   color: var(--text-tertiary);
+}
+
+.day-chevron {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--text-tertiary);
+  transition: transform 160ms ease;
+}
+
+.day-chevron .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.day-card.is-expanded .day-chevron {
+  transform: rotate(180deg);
 }
 
 .task-list {
@@ -469,6 +515,13 @@ summary:focus-visible {
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-secondary);
   font-size: 9.5px;
+  text-align: center;
+}
+
+.no-high-row {
+  padding: 10px 12px;
+  color: var(--text-tertiary);
+  font-size: 10px;
   text-align: center;
 }
 

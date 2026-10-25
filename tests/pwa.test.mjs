@@ -55,6 +55,11 @@ test("speech has Web Speech support and keyboard dictation fallback", () => {
   assert.match(app, /elements\.draft\.focus\(\)/);
   assert.match(app, /键盘麦克风听写/);
   assert.match(app, /recognition\.lang = "zh-CN"/);
+  assert.match(app, /recognition\.continuous = true/);
+  assert.match(app, /75_000/);
+  assert.match(app, /10 \* 60 \* 1000/);
+  assert.match(app, /startRecognitionAttempt\(false\)/);
+  assert.match(app, /appState\.recordingIntent/);
 });
 
 test("UI fonts stay compact and cards limit home lines", () => {
@@ -90,4 +95,13 @@ test("local date and task persistence code is included", () => {
   assert.match(app, /store\.addRaw/);
   assert.match(app, /store\.complete/);
   assert.match(app, /store\.delete/);
+});
+
+test("home day cards can collapse to high-priority items only", () => {
+  const app = read("app.js");
+  const uiState = read("ui-state.js");
+  assert.match(app, /data-action="toggle-day"/);
+  assert.match(app, /visibleTasksForDay/);
+  assert.match(uiState, /importance === "high"/);
+  assert.match(uiState, /if \(expanded\) return \[\.\.\.items\]/);
 });

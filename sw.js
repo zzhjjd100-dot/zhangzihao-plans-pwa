@@ -1,4 +1,4 @@
-const CACHE_NAME = "zhangzihao-plans-v1.0.0";
+const CACHE_NAME = "zhangzihao-plans-v1.1.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./app.js",
   "./extractor.js",
   "./store.js",
+  "./ui-state.js",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",

@@ -16,7 +16,7 @@ test("removes fillers, preserves importance, and extracts multiple plans", () =>
 
   const report = result.plans[0];
   const dentist = result.plans[1];
-  assert.match(report.text, /提交项目报告，很重要/);
+  assert.equal(report.text, "提交项目报告");
   assert.equal(report.importance, "high");
   assert.equal(new Date(report.date).getHours(), 15);
   assert.equal(new Date(dentist.date).getDate(), 25);
@@ -62,4 +62,40 @@ test("mock speech transcript completes extraction pipeline", () => {
   assert.ok(result.plans[0].text.includes("产品经理"));
   assert.equal(result.plans[0].importance, "high");
   assert.equal(new Date(result.plans[0].date).getHours(), 14);
+});
+
+test("moves relative date out of title and trailing importance into priority", () => {
+  const result = extractPlans("明天下午三点提交项目报告，这个很重要。", {
+    referenceDate
+  });
+  assert.equal(result.plans.length, 1);
+  assert.equal(result.plans[0].text, "提交项目报告");
+  assert.equal(result.plans[0].importance, "high");
+  assert.equal(new Date(result.plans[0].date).getDate(), 24);
+  assert.equal(new Date(result.plans[0].date).getHours(), 15);
+});
+
+test("a standalone importance comment upgrades the prior task and creates no extra item", () => {
+  const result = extractPlans("提交项目报告。这个很重要。", {
+    referenceDate
+  });
+  assert.equal(result.plans.length, 1);
+  assert.equal(result.plans[0].text, "提交项目报告");
+  assert.equal(result.plans[0].importance, "high");
+});
+
+test("summarizes English vocabulary and sample essay into compact items", () => {
+  const result = extractPlans("明天要背英语生词和英语范文。", {
+    referenceDate
+  });
+  assert.deepEqual(result.plans.map((plan) => plan.text), ["英语生词", "范文"]);
+  assert.ok(result.plans.every((plan) => new Date(plan.date).getDate() === 24));
+});
+
+test("keeps meaningful preparation verb while removing scheduling filler", () => {
+  const result = extractPlans("提醒我明天记得准备资料。", {
+    referenceDate
+  });
+  assert.equal(result.plans[0].text, "准备资料");
+  assert.ok(!result.plans[0].text.includes("明天"));
 });

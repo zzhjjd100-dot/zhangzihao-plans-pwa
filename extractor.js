@@ -52,19 +52,37 @@ export function extractPlans(rawText, options = {}) {
   for (const fragment of fragments) {
     const sanitized = removeFiller(fragment);
     removedFillerCount += sanitized.removedCount;
-    const text = sanitized.text.trim();
-    if (!text || isPureFiller(text)) continue;
+    const originalFragment = sanitized.text.trim();
+    if (!originalFragment || isPureFiller(originalFragment)) continue;
 
-    const dateResult = detectDate(text, referenceDate);
-    const importance = detectImportance(text);
-    plans.push({
-      id: createId(),
-      text,
-      date: (dateResult.date || fallbackDate).toISOString(),
-      importance: importance || fallbackImportance,
-      dateWasAutomaticallyInferred: Boolean(dateResult.date),
-      importanceWasAutomaticallyInferred: Boolean(importance)
-    });
+    const importanceOnly = detectImportanceOnly(originalFragment);
+    if (importanceOnly) {
+      if (plans.length > 0) {
+        const targets = originalFragment.includes("都")
+          ? plans
+          : [plans.at(-1)];
+        for (const plan of targets) {
+          plan.importance = importanceOnly;
+          plan.importanceWasAutomaticallyInferred = true;
+        }
+      }
+      continue;
+    }
+
+    const dateResult = detectDate(originalFragment, referenceDate);
+    const importance = detectImportance(originalFragment);
+    const summaries = summarizeTaskText(originalFragment);
+
+    for (const summary of summaries) {
+      plans.push({
+        id: createId(),
+        text: summary,
+        date: (dateResult.date || fallbackDate).toISOString(),
+        importance: importance || fallbackImportance,
+        dateWasAutomaticallyInferred: Boolean(dateResult.date),
+        importanceWasAutomaticallyInferred: Boolean(importance)
+      });
+    }
   }
 
   if (plans.length === 0) {
@@ -182,6 +200,109 @@ function isPureFiller(text) {
     FILLER_WORDS.has(compact) ||
     (compact.length <= 3 && [...compact].every((char) => "嗯啊呃额哦唉".includes(char)))
   );
+}
+
+function detectImportanceOnly(text) {
+  const compact = text
+    .replace(/[\s，,。！？!?；;、.…]/g, "")
+    .replace(/^(?:这个|这件事|这|它)/, "")
+    .replace(/^(?:任务|计划|事情)/, "");
+
+  if (/^(?:真的|非常|特别|很|十分)?重要(?:的)?(?:任务|计划|事情)?$/.test(compact)) {
+    return "high";
+  }
+  if (/^(?:真的|非常|特别|很|十分)?(?:关键|紧急)(?:的)?(?:任务|计划|事情)?$/.test(compact)) {
+    return "high";
+  }
+  if (/^(?:真的|很|非常|特别|太)?不(?:太)?(?:重要|急)(?:的)?(?:任务|计划|事情)?$/.test(compact)) {
+    return "low";
+  }
+  return null;
+}
+
+function summarizeTaskText(text) {
+  const withoutImportanceComment = stripImportanceComment(text);
+  const withoutSchedule = stripSchedulePrefixes(withoutImportanceComment);
+  const normalized = normalizeTaskTitle(withoutSchedule);
+  if (!normalized) return [];
+
+  const learningSummaries = summarizeLearningItems(normalized);
+  if (learningSummaries.length) return learningSummaries;
+
+  return [normalized];
+}
+
+function summarizeLearningItems(text) {
+  const hasVocabulary = /英语\s*(?:生词|单词|词汇)/.test(text);
+  const hasEssay = /英语\s*(?:范文|作文)|(?:读|背|看|学习)(?:一篇|一些)?\s*范文/.test(text);
+  if (!hasVocabulary && !hasEssay) return [];
+
+  const residual = text
+    .replace(/英语\s*(?:生词|单词|词汇|范文|作文)/g, "")
+    .replace(/(?:背|读|看|学习|复习|整理|记|默写|抄写)/g, "")
+    .replace(/(?:一篇|一些|一点|十个|十个?)/g, "")
+    .replace(/(?:生词|单词|词汇|范文|作文)/g, "")
+    .replace(/[和与及、,，以及]/g, "")
+    .replace(/[的了呢吧啊呀。！？!?\s]/g, "");
+
+  if (residual.length > 0) return [];
+
+  const summaries = [];
+  if (hasVocabulary) summaries.push("英语生词");
+  if (hasEssay) summaries.push("范文");
+  return summaries;
+}
+
+function stripImportanceComment(text) {
+  return text
+    .replace(
+      /[\s，,]*(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?[。！!]*$/g,
+      ""
+    )
+    .replace(
+      /[\s，,]*(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|很|非常|特别|太)?不(?:太)?(?:重要|急)(?:的)?(?:任务|计划|事情)?[。！!]*$/g,
+      ""
+    )
+    .trim();
+}
+
+function stripSchedulePrefixes(text) {
+  let result = text.trim();
+  const prefixes = [
+    /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想)\s*/,
+    /^(?:今天|明天|后天|大后天|明晚|今晚|昨天)(?:的)?\s*/,
+    /^(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
+    /^(?:下个月|本月|这个月)\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
+    /^(?:\d{1,2}|[一二三四五六七八九十两]{1,3})月(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
+    /^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时|:|：)(?:\d{1,2}|[一二三四五六七八九十两]{1,3})?(?:分)?\s*/,
+    /^(?:我)?要(?=去|把|交|提|写|做|买|联|预|检|处|参|开|整|复|背|读|学|准|完|发|跟|和)\s*/
+  ];
+
+  for (let pass = 0; pass < 8; pass += 1) {
+    let changed = false;
+    for (const expression of prefixes) {
+      const next = result.replace(expression, "").trim();
+      if (next !== result) {
+        result = next;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  return result.replace(/^[，,：:\s]+/, "").trim();
+}
+
+function normalizeTaskTitle(text) {
+  return text
+    .replace(/[，,]\s*(?:这个|这|它)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?$/g, "")
+    .replace(/(讨论|考虑|检查|确认|整理|处理)一下$/g, "$1")
+    .replace(/看一下$/g, "看")
+    .replace(/[，,\s]+/g, "，")
+    .replace(/(?:就行了|就好|即可|就行|吧|啊|呀|哈)+$/g, "")
+    .replace(/^[，,。；;\s]+/g, "")
+    .replace(/[，,。；;\s]+$/g, "")
+    .trim();
 }
 
 function detectDate(text, referenceDate) {

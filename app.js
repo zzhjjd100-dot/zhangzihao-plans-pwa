@@ -7,6 +7,10 @@ import {
   dateFromDayKey,
   dayKey
 } from "./store.js";
+import {
+  toggledDaySet,
+  visibleTasksForDay
+} from "./ui-state.js";
 
 const elements = {
   header: document.querySelector("#appHeader"),
@@ -45,6 +49,13 @@ const appState = {
   recording: false,
   speechHandled: false,
   finalTranscript: "",
+  recordingIntent: false,
+  silenceTimer: 0,
+  restartTimer: 0,
+  maxDurationTimer: 0,
+  recordingStartedAt: 0,
+  lastSpeechAt: 0,
+  expandedDays: new Set(),
   toastTimer: 0
 };
 
@@ -89,6 +100,7 @@ function handleClick(event) {
     event.preventDefault();
     const action = actionElement.dataset.action;
     if (action === "open-day") navigateToDay(actionElement.dataset.day);
+    if (action === "toggle-day") toggleDayExpanded(actionElement.dataset.day);
     if (action === "go-home") goHome();
     if (action === "install") openInstallHelp();
     if (action === "toggle-complete") handleToggleComplete(actionElement.dataset.id);
@@ -264,24 +276,46 @@ function summaryBarHTML(items) {
 }
 
 function dayCardHTML(group) {
-  const visibleItems = group.items.slice(0, 3);
-  const remaining = Math.max(0, group.items.length - visibleItems.length);
+  const expanded = appState.expandedDays.has(group.key);
+  const visibleItems = visibleTasksForDay(group.items, expanded);
+  const taskContent = visibleItems.length
+    ? `<div class="task-list">${visibleItems.map((item) => taskRowHTML(item, false)).join("")}</div>`
+    : `<div class="no-high-row">${expanded ? "当天没有任务" : "暂无高重要任务"}</div>`;
+
   return `
-    <article class="day-card">
-      <button class="day-card-header" type="button" data-action="open-day" data-day="${group.key}">
-        <span class="day-card-date">
-          <strong>${escapeHTML(formatDayHeader(group.date))}</strong>
-          <small>${escapeHTML(relativeDayLabel(group.date))}</small>
-        </span>
-        <span class="day-card-count">${group.items.length} 项</span>
-        ${icon("chevron-right")}
-      </button>
-      <div class="task-list">
-        ${visibleItems.map((item) => taskRowHTML(item, false)).join("")}
+    <article class="day-card${expanded ? " is-expanded" : ""}">
+      <div class="day-card-header">
+        <button
+          class="day-toggle"
+          type="button"
+          data-action="toggle-day"
+          data-day="${group.key}"
+          aria-expanded="${expanded}"
+        >
+          <span class="day-card-date">
+            <strong>${escapeHTML(formatDayHeader(group.date))}</strong>
+            <small>${escapeHTML(relativeDayLabel(group.date))}</small>
+          </span>
+          <span class="day-card-count">${group.items.length} 项</span>
+          <span class="day-chevron">${icon("chevron-down")}</span>
+        </button>
+        <button
+          class="day-card-open"
+          type="button"
+          data-action="open-day"
+          data-day="${group.key}"
+          aria-label="查看当天全部计划"
+        >${icon("chevron-right")}</button>
       </div>
-      ${remaining ? `<div class="more-row">还有 ${remaining} 项</div>` : ""}
+      ${taskContent}
     </article>
   `;
+}
+
+function toggleDayExpanded(key) {
+  if (!key) return;
+  appState.expandedDays = toggledDaySet(appState.expandedDays, key);
+  renderContent();
 }
 
 function taskRowHTML(item, detailed) {
@@ -629,15 +663,15 @@ function setupSpeechRecognition() {
   appState.speechSupported = true;
   const recognition = new Recognition();
   recognition.lang = "zh-CN";
-  recognition.continuous = false;
+  recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
     appState.recording = true;
     appState.speechHandled = false;
-    appState.finalTranscript = "";
-    elements.draft.value = "";
+    appState.lastSpeechAt = Date.now();
+    scheduleSilenceStop();
     updateComposerState();
   };
 
@@ -651,26 +685,29 @@ function setupSpeechRecognition() {
     }
     appState.finalTranscript += finalText;
     elements.draft.value = `${appState.finalTranscript}${interimText}`.trim();
+    appState.lastSpeechAt = Date.now();
+    scheduleSilenceStop();
     resizeDraft();
     updateComposerState();
   };
 
   recognition.onerror = (event) => {
-    if (event.error !== "no-speech") {
+    if (["not-allowed", "audio-capture", "service-not-allowed"].includes(event.error)) {
+      appState.recordingIntent = false;
+      finishRecognitionSession();
+    } else if (event.error !== "no-speech") {
       showToast("语音识别暂时不可用，请使用键盘听写");
     }
   };
 
   recognition.onend = () => {
     appState.recording = false;
-    updateComposerState();
-    if (
-      appState.mode === "smart" &&
-      appState.finalTranscript.trim() &&
-      !appState.speechHandled
-    ) {
-      appState.speechHandled = true;
-      setTimeout(() => prepareReview(elements.draft.value.trim()), 120);
+    if (appState.recordingIntent) {
+      appState.recording = true;
+      appState.restartTimer = setTimeout(() => startRecognitionAttempt(false), 380);
+      updateComposerState();
+    } else {
+      finishRecognitionSession();
     }
   };
 
@@ -690,20 +727,76 @@ function toggleRecording() {
     return;
   }
 
-  try {
-    appState.recognition.start();
-  } catch {
-    showToast("语音识别启动失败，请使用键盘听写");
-    elements.draft.focus();
-  }
+  appState.recordingIntent = true;
+  appState.finalTranscript = "";
+  appState.recordingStartedAt = Date.now();
+  elements.draft.value = "";
+  updateComposerState();
+  showToast("录音已开始，停顿 75 秒后自动整理");
+  startRecognitionAttempt(true);
 }
 
 function stopRecording() {
+  appState.recordingIntent = false;
+  appState.recording = false;
+  clearRecognitionTimers();
+  updateComposerState();
   try {
     appState.recognition?.stop();
   } catch {
-    appState.recording = false;
-    updateComposerState();
+    finishRecognitionSession();
+  }
+}
+
+function startRecognitionAttempt(isFirstAttempt) {
+  if (!appState.recordingIntent) {
+    finishRecognitionSession();
+    return;
+  }
+
+  try {
+    appState.recognition.start();
+    if (isFirstAttempt) {
+      clearTimeout(appState.maxDurationTimer);
+      appState.maxDurationTimer = setTimeout(() => {
+        if (appState.recordingIntent) stopRecording();
+      }, 10 * 60 * 1000);
+    }
+  } catch {
+    appState.recordingIntent = false;
+    finishRecognitionSession();
+  }
+}
+
+function scheduleSilenceStop() {
+  clearTimeout(appState.silenceTimer);
+  appState.silenceTimer = setTimeout(() => {
+    if (appState.recordingIntent) stopRecording();
+  }, 75_000);
+}
+
+function clearRecognitionTimers() {
+  clearTimeout(appState.silenceTimer);
+  clearTimeout(appState.restartTimer);
+  clearTimeout(appState.maxDurationTimer);
+  appState.silenceTimer = 0;
+  appState.restartTimer = 0;
+  appState.maxDurationTimer = 0;
+}
+
+function finishRecognitionSession() {
+  clearRecognitionTimers();
+  appState.recordingIntent = false;
+  appState.recording = false;
+  updateComposerState();
+  const finalText = elements.draft.value.trim();
+  if (
+    appState.mode === "smart" &&
+    finalText &&
+    !appState.speechHandled
+  ) {
+    appState.speechHandled = true;
+    setTimeout(() => prepareReview(finalText), 120);
   }
 }
 
@@ -751,7 +844,10 @@ function registerServiceWorker() {
     "serviceWorker" in navigator &&
     ["http:", "https:"].includes(window.location.protocol)
   ) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then((registration) => registration.update())
+      .catch(() => {});
   }
 }
 
