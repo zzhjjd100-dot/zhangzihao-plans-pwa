@@ -344,3 +344,28 @@ test("keeps bedtime review separate from the preceding biology homework", () => 
   assert.equal(result.plans.at(-1).importance, "low");
   assert.ok(result.plans.slice(0, -1).every((plan) => plan.importance === "high"));
 });
+
+test("formalizes the latest study list and keeps the full after-school object", () => {
+  const text = "今天要把，英语单词英语范文英语听说给做完还有语文的，半张卷子和反测试，还有化学的错题，然后复习生物第五单元再完成生物作业然后睡前复习一点语文古诗词，尽量，做一点，数学课外班作业，这段话好了一点，但还有问题，计划不要出现“一点”这种口语词汇，要书面正式一点，还有，这句话识别出一句睡前复习一点，这是一句废话，课外班作业识别成课外班";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语单词",
+      "完成英语范文",
+      "完成英语听说",
+      "完成语文半张卷子",
+      "完成语文分项测试",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物作业",
+      "睡前复习语文古诗词",
+      "完成数学课外班作业"
+    ]
+  );
+  assert.equal(result.plans.at(-1).importance, "low");
+  assert.equal(result.plans.at(-2).importance, "medium");
+  assert.ok(result.plans.every((plan) => !/(?:一点|一下|这段话|这句话|废话)/.test(plan.text)));
+  assert.ok(result.plans.every((plan) => !/^(?:睡前)?复习$/u.test(plan.text)));
+});

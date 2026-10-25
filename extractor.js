@@ -55,7 +55,8 @@ const STUDY_SUBJECTS = [
 const STUDY_OBJECT_PATTERN_SOURCE =
   `(?:${STUDY_SUBJECTS.join("|")})?\\s*(?:的)?\\s*(?:` +
   "第[一二三四五六七八九十百\\d]+单元(?:的)?(?:知识|知识点|内容|作业|练习|测试)?|" +
-  "半张卷子|课班作业|分项测试|古诗词|卷子|试卷|测试|听说|单词|生词|词汇|" +
+  "课外班作业|课外班练习|课外班测试|半张卷子|课班作业|分项测试|古诗词|" +
+  "卷子|试卷|测试|听说|单词|生词|词汇|" +
   "作文|范文|错题|作业)";
 
 const ACTION_CUE_PATTERN = new RegExp(
@@ -185,6 +186,9 @@ export function extractPlans(rawText, options = {}) {
     if (!createdFromFragment && hasTimeExpression(originalFragment) && dateResult.date) {
       pendingTimeContext = dateResult.date;
     }
+    if (!createdFromFragment && isStandaloneImportanceCue(originalFragment)) {
+      pendingImportanceContext = detectImportance(originalFragment);
+    }
   }
 
   if (plans.length === 0) {
@@ -222,9 +226,19 @@ function normalize(text) {
       /[，,]?\s*这句话(?:的)?(?:识别结果|提取结果|整理结果)[\s\S]*$/g,
       ""
     )
+    .replace(
+      /[，,]?\s*(?:这段话|这段)(?:好|有|识别|提取|整理|计划)[\s\S]*$/g,
+      ""
+    )
+    .replace(/[，,]?\s*这句话(?:识别出|提取出|整理出)[\s\S]*$/g, "")
     .replace(/英语箱子/g, "英语生词")
     .replace(/英语听说给作文/g, "英语听说给做完")
     .replace(/反相册试/g, "分项测试")
+    .replace(/反测试/g, "分项测试")
+    .replace(
+      /((?:做|完成|写)(?:一点|一下)?[，,]?\s*)((?:英语|数学|语文|物理|化学|生物|政治|历史|地理)课外班)(?=$|[，,。；;])/gu,
+      "$1$2作业"
+    )
     .replace(/错题也(?:给)?错了/g, "错题也做了")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
@@ -233,7 +247,7 @@ function normalize(text) {
 
 function sanitizePlanTitle(text) {
   return String(text || "")
-    .replace(/(复习|预习)一点(?=[\p{Script=Han}])/gu, "$1")
+    .replace(/(?:一点|一下)/gu, "")
     .replace(/[，,。；;、：:…]+/gu, "")
     .replace(/\s+/gu, "")
     .replace(/和$/u, "")
@@ -248,6 +262,10 @@ function splitIntoFragments(text) {
   prepared = prepared.replace(
     /((?:这个|这件|这项)?(?:真的|很|非常|特别|太)?不(?:太)?(?:重要|急)(?:的)?(?:任务|计划|事情)?)\s*(?=(?:前面(?:的)?所有|以上所有|全部|所有|这些).*?(?:重要|关键|紧急))/gu,
     "$1\n"
+  );
+  prepared = prepared.replace(
+    /[，,]\s*(尽量|有空|可选|随便|低优先|看情况|以后再说)\s*(?=[，,])/gu,
+    "\n$1\n"
   );
 
   prepared = prepared
@@ -371,7 +389,7 @@ function insertLooseTaskBoundaries(text) {
     const isStudySubject = STUDY_SUBJECTS.includes(marker);
     if (isStudySubject) {
       const preceding = before.trim();
-      const isLeadIn = /(?:要|需要|得|应该|准备|打算|计划|想|把|给|完成|复习|温习|预习|背|读|写|做|整理|学习)$/.test(preceding);
+      const isLeadIn = /(?:要|需要|得|应该|准备|打算|计划|想|把|给|完成|复习|温习|预习|背|读|写|做|整理|学习)(?:一点|一下|一些)?$/.test(preceding);
       const isCompletedPrevious =
         /(?:做了|做完|写完|完成|搞定|范文|生词|卷子|单词|词汇|知识|作业)$/.test(preceding);
       const isPendingLookup = /(?:看看|查看|最近)$/.test(preceding);
@@ -480,6 +498,12 @@ function isPureFiller(text) {
   );
 }
 
+function isStandaloneImportanceCue(text) {
+  return /^(?:尽量|有空|可选|随便|低优先|看情况|以后再说)$/u.test(
+    String(text || "").trim()
+  );
+}
+
 function detectImportanceOnly(text) {
   const compact = text
     .replace(/[\s，,。！？!?；;、.…]/g, "")
@@ -554,6 +578,7 @@ function detectStudyAction(text) {
   if (/(?:背诵|背)/u.test(text)) return "背";
   if (/(?:朗读|读)/u.test(text)) return "读";
   if (/(?:做完|写完|做了|完成|搞定)/u.test(text)) return "完成";
+  if (/(?:做|写)/u.test(text)) return "完成";
   return null;
 }
 
