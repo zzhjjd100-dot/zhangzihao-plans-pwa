@@ -1,31 +1,33 @@
-✔ removes fillers, preserves importance, and extracts multiple plans (23.740875ms)
-✔ does not drop conditional, person, deadline, or attachment details (0.677167ms)
-✔ classifies low and high importance (0.921042ms)
-✔ parses next week, next month, and colloquial two o'clock (0.947459ms)
-✔ mock speech transcript completes extraction pipeline (0.236292ms)
-✔ moves relative date out of title and trailing importance into priority (0.240084ms)
-✔ a standalone importance comment upgrades the prior task and creates no extra item (0.201375ms)
-✔ summarizes English vocabulary and sample essay into compact items (1.209916ms)
-✔ keeps meaningful preparation verb while removing scheduling filler (0.315083ms)
-✔ summarizes a long passage into independent tasks with per-task metadata (1.001917ms)
-✔ recovers multiple tasks from a long speech without punctuation (0.420625ms)
-✔ removes meaningless connectors while preserving meaningful relational words (0.277208ms)
-✔ rejects feelings, opinions, questions, and past events as plans (1.423875ms)
-✔ accepts concrete feasible actions (0.297166ms)
-✔ summarizes the user's spoken study list into short actionable plans (0.749292ms)
-✔ keeps earlier subjects when later subjects are spoken (0.769208ms)
-✔ keeps the complete study list and applies the spoken low priority (0.704ms)
-✔ turns modal study statements into short verb-object plans (0.357833ms)
-✔ extracts a long study list with clean titles and scoped importance (0.574625ms)
-✔ keeps every study object when the list has no punctuation (0.354375ms)
-✔ splits adjacent action clauses and preserves an explicit low item (0.144083ms)
-✔ keeps bedtime review separate from the preceding biology homework (0.436417ms)
-✔ formalizes the latest study list and keeps the full after-school object (0.873875ms)
-ℹ tests 23
+✔ uses 20 Mandarin speech excerpts to separate narration from action (24.598375ms)
+✔ removes repeated oral fillers and reported-speech frames (1.095791ms)
+✔ removes fillers, preserves importance, and extracts multiple plans (21.296ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.522916ms)
+✔ classifies low and high importance (1.018542ms)
+✔ parses next week, next month, and colloquial two o'clock (0.771417ms)
+✔ mock speech transcript completes extraction pipeline (0.291542ms)
+✔ moves relative date out of title and trailing importance into priority (0.237959ms)
+✔ a standalone importance comment upgrades the prior task and creates no extra item (0.186042ms)
+✔ summarizes English vocabulary and sample essay into compact items (0.960125ms)
+✔ keeps meaningful preparation verb while removing scheduling filler (0.481333ms)
+✔ summarizes a long passage into independent tasks with per-task metadata (0.930917ms)
+✔ recovers multiple tasks from a long speech without punctuation (0.352167ms)
+✔ removes meaningless connectors while preserving meaningful relational words (0.302125ms)
+✔ rejects feelings, opinions, questions, and past events as plans (1.204458ms)
+✔ accepts concrete feasible actions (0.409458ms)
+✔ summarizes the user's spoken study list into short actionable plans (1.073959ms)
+✔ keeps earlier subjects when later subjects are spoken (0.773ms)
+✔ keeps the complete study list and applies the spoken low priority (0.670916ms)
+✔ turns modal study statements into short verb-object plans (0.371583ms)
+✔ extracts a long study list with clean titles and scoped importance (0.635833ms)
+✔ keeps every study object when the list has no punctuation (0.711292ms)
+✔ splits adjacent action clauses and preserves an explicit low item (0.189291ms)
+✔ keeps bedtime review separate from the preceding biology homework (0.671375ms)
+✔ formalizes the latest study list and keeps the full after-school object (0.864125ms)
+ℹ tests 25
 ℹ suites 0
-ℹ pass 23
+ℹ pass 25
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 93.555708
+ℹ duration_ms 79.484958

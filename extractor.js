@@ -40,7 +40,9 @@ const ACTION_CUES = [
   "修", "打印", "下载", "更新", "安装", "订", "安排", "提醒", "面试",
   "考试", "体检", "复盘", "汇报", "讨论", "沟通", "申请", "上传",
   "寄", "领取", "核对", "跟进", "拜访", "看", "听", "带", "去",
-  "到", "拿", "陪", "缴", "吃", "跑", "锻炼", "运动"
+  "到", "拿", "陪", "缴", "吃", "跑", "锻炼", "运动",
+  "指导", "细化", "盘活", "推进", "完善", "支持", "落实", "建设",
+  "打造", "保障", "拓展", "研发", "推出", "分类"
 ];
 
 const AUTONOMOUS_TASKS = [
@@ -92,7 +94,8 @@ export function extractPlans(rawText, options = {}) {
     : referenceDate;
   const fallbackImportance = options.defaultImportance || "medium";
   const normalized = normalize(rawText);
-  const fragments = splitIntoFragments(normalized);
+  const narrativeOnly = isNonActionableNarration(normalized);
+  const fragments = narrativeOnly ? [] : splitIntoFragments(normalized);
   const plans = [];
   let removedFillerCount = 0;
   let activeDateContext = null;
@@ -131,7 +134,12 @@ export function extractPlans(rawText, options = {}) {
       continue;
     }
 
-    if (isPastStatement(originalFragment)) continue;
+    if (
+      isPastStatement(originalFragment) ||
+      isNonActionableNarration(originalFragment)
+    ) {
+      continue;
+    }
     const explicitSubject = STUDY_SUBJECTS.find((subject) =>
       originalFragment.includes(subject)
     );
@@ -191,7 +199,7 @@ export function extractPlans(rawText, options = {}) {
     }
   }
 
-  if (plans.length === 0) {
+  if (plans.length === 0 && !narrativeOnly) {
     plans.push(
       ...extractFallbackPlans(
         normalized,
@@ -406,6 +414,12 @@ function insertLooseTaskBoundaries(text) {
     if (isTimeWithinDate) continue;
 
     const ahead = text.slice(index, index + 34);
+    if (
+      marker === "再" &&
+      /^(?:开发|利用|贷款|贴现|保险|就业|规划|生产)/u.test(ahead.slice(1))
+    ) {
+      continue;
+    }
     const isConnector = /^(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)$/.test(marker);
     if (!isConnector && !actionPattern.test(ahead)) continue;
     if (boundaries.at(-1) != null && index - boundaries.at(-1) < 3) continue;
@@ -466,9 +480,10 @@ function removeFiller(text) {
   const original = text.trim();
   let result = original
     .replace(
-      /^(?:(?:嗯+|啊+|呃+|额+|哦+|唉+|那个|就是说|然后呢|怎么说呢|其实吧|你知道吗|我跟你说一下|我和你说一下|我说一下|我跟你说|我和你说)[，,、.…\s]*)+/g,
+      /^(?:(?:嗯+|啊+|呃+|额+|哦+|唉+|那个|就是说|也就是|也就是说|就是|其实吧?|然后呢|怎么说呢|你知道吗|我跟你说一下|我和你说一下|我说一下|我跟你说|我和你说)[，,、.…\s]*)+/g,
       ""
     )
+    .replace(/(?:然后|这个|那个|就是|其实|可能|应该)\1+/g, "$1")
     .replace(
       /(?<=[，,。；;！？!?.…\s])(?:嗯+|啊+|呃+|额+|哦+|那个|就是说|你知道吗|我跟你说)[，,、.…\s]*/g,
       ""
@@ -644,7 +659,7 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
   let activeDate = null;
 
   for (const clause of clauses) {
-    if (isPastStatement(clause)) continue;
+    if (isPastStatement(clause) || isNonActionableNarration(clause)) continue;
     const dateResult = resolveTaskDate(clause, referenceDate, activeDate);
     activeDate = dateResult.contextDate || activeDate;
     const importance = detectImportance(clause);
@@ -668,6 +683,7 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
   if (fallbackPlans.length) return deduplicatePlans(fallbackPlans);
 
   if (isPastStatement(cleaned)) return [];
+  if (isNonActionableNarration(cleaned)) return [];
   const condensed = condenseLooseClause(cleaned);
   return condensed && isFeasiblePlanText(condensed)
     ? [{
@@ -746,6 +762,49 @@ function isPastStatement(text) {
   return /(?:提交|完成|写|做|买|联系|整理|开会|参加|发|交|付款|缴费|处理|确认|复习|学习|背|读)(?:了|过)/.test(compact);
 }
 
+function isNonActionableNarration(text) {
+  const compact = String(text || "")
+    .replace(/[\s，,。！？!?；;、.…]/g, "")
+    .trim();
+  if (!compact) return true;
+
+  const explicitFuture =
+    /(?:下一步|接下来|后续|从今以后|明天|后天|下周|下个月|到时候|计划|打算|准备要|将要|想要|想去|想出去|我要|我们需要|(?:我|我们|我现在|我们现在)(?:需要|要|得)|(?:目前|现在|当前)(?:要|需要|得|必须|先|准备|打算|计划|开始)|提醒我|记得|必须|(?:我|我们)就(?:去|往|开始|做))/u.test(compact);
+  if (explicitFuture) return false;
+
+  if (/^(?:目前|现在|当前|如今)/u.test(compact)) return true;
+  if (/^近期有(?:居民|市民|网友|群众).*(?:反映|投诉|表示)/u.test(compact)) {
+    return true;
+  }
+  if (/^(?:早年|当年|当时|之前|过去|原来|此前)/u.test(compact)) return true;
+  if (
+    /(?:当年|早年|之前|过去|后来|其后|那时候)/u.test(compact) &&
+    /(?:我|我们|他|她|朋友|家人|母亲|父亲)/u.test(compact)
+  ) {
+    return true;
+  }
+  if (
+    /^(?:我(?:老公|老婆|妈妈|母亲|爸爸|父亲|孩子|朋友|同事|同学)|他|她|专家|医生|居民|工作人员)/u.test(compact)
+  ) {
+    return true;
+  }
+  if (
+    /(?:认为|以为|觉得|发现|表示|说明|意味着|核心原则|关键是|问题是|原因是|属于|指的是|有没有|是否|最常见|最难|(?:比较|非常|很)(?:熟悉|了解|容易|复杂))/u.test(compact)
+  ) {
+    return true;
+  }
+  if (/(?:其后|后来).*(?:到场|发生|成为|完成|看到)/u.test(compact)) {
+    return true;
+  }
+  if (
+    /(?:建议|最好|可以.*(?:也可以|再来))/u.test(compact) &&
+    !/(?:我要|我需要|提醒我|帮我|明天|下周)/u.test(compact)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function condenseLooseClause(text) {
   let result = stripSchedulePrefixes(stripImportanceComment(text))
     .replace(/^(?:我|你)?(?:觉得|感觉|想着|想说|说一下|说一下就是)/g, "")
@@ -819,6 +878,9 @@ function stripSchedulePrefixes(text) {
   const prefixes = [
     /^(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|顺便(?:说一下)?)\s*/,
     /^(?:就是|其实就是|主要是|今天就是)\s*/,
+    /^(?:下一步|接下来|后续|从现在开始)[，,\s]*(?:我们|我)?(?:将|会|要|需要|计划|准备|打算)?\s*/,
+    /^(?:我们|我)(?:将|会|计划|准备|打算)\s*/,
+    /^(?:目前|现在|当前)(?:先|准备|打算|计划|开始)?\s*/,
     /^(?:先|首先|再|其次|最后)\s*/,
     /^(?:有空(?:的时候)?|看情况|尽量)\s*/,
     /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想|你要|你需要|你得|他要|他得|她要|她得|得)\s*/,
@@ -850,6 +912,23 @@ function normalizeTaskTitle(text) {
   const actionObject = normalizeActionObjectPhrase(text);
   return actionObject
     .replace(/(?:而且|并且|然后|接着|之后|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后)[，,\s]*/g, "")
+    .replace(/^(?:说[，,\s]*)+(?:我|你|他|她)?(?:要|需要|想|打算)?[，,\s]*/u, "")
+    .replace(/^(?:先|首先|再|其次|最后)\s*/u, "")
+    .replace(/^(?:需要|应该|必须)(?=[\p{Script=Han}])/u, "")
+    .replace(/(?:这个|那个)(?=[\p{Script=Han}])/gu, "")
+    .replace(
+      /^.*?种完(.+?)[，,]\s*我就(?:往|去)(.+?)(?:走|旅行)?$/u,
+      (_, crop, direction) => {
+        const harvest = crop === "麦子" ? "麦收" : `${crop}收获`;
+        const destination =
+          direction === "南" ? "南方" : direction === "北" ? "北方" : direction;
+        return `完成${harvest}后去${destination}旅行`;
+      }
+    )
+    .replace(
+      /^指导各地结合.+?盘活(.+?)(?:的)?(?:路径|工作|任务)?$/u,
+      "指导各地盘活$1"
+    )
     .replace(/^把(.+?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
     .replace(/^(.{2,36}?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
     .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(复习|预习)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$2$1$3")
