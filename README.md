@@ -2,6 +2,16 @@
 
 一个可添加到 iPhone 主屏幕的本地优先 PWA。无需 Apple 开发者签名，数据保存在浏览器本机。
 
+## 在线地址
+
+已部署到 GitHub Pages：
+
+https://zzhjjd100-dot.github.io/zhangzihao-plans-pwa/
+
+GitHub 仓库：
+
+https://github.com/zzhjjd100-dot/zhangzihao-plans-pwa
+
 ## 已实现
 
 - 深灰背景和高重要性红色文字
@@ -34,15 +44,16 @@ npm start
 
 ## 安装到 iPhone
 
-PWA 需要通过 HTTPS 部署后才能在 iPhone 上完整安装和离线使用。
-
-1. 将本目录部署到 GitHub Pages、Cloudflare Pages、Netlify 或任意 HTTPS 静态网站。
-2. 用 iPhone Safari 打开部署地址。
+1. 用 iPhone Safari 打开：
+   `https://zzhjjd100-dot.github.io/zhangzihao-plans-pwa/`
+2. 等待页面首次加载完成。
 3. 点击 Safari 分享按钮。
 4. 选择“添加到主屏幕”。
 5. 从主屏幕打开后即可使用独立窗口。
 
 首次加载完成后，Service Worker 会缓存应用外壳；后续可以离线打开。
+
+GitHub Pages、Cloudflare Pages、Netlify 和普通 HTTPS 静态网站的部署方法见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
 
 ## 语音说明
 
