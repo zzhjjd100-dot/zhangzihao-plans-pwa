@@ -135,7 +135,15 @@ summary:focus-visible {
   flex: 1;
 }
 
+.header-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .header-title {
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text);
@@ -144,6 +152,16 @@ summary:focus-visible {
   letter-spacing: -0.02em;
   line-height: 1.2;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-version {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
   white-space: nowrap;
 }
 

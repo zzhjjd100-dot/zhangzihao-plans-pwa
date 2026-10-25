@@ -17,6 +17,8 @@ import {
   refineSpeechTranscript
 } from "./speech-text.js";
 
+const APP_VERSION = "1.12.1";
+
 const elements = {
   header: document.querySelector("#appHeader"),
   content: document.querySelector("#appContent"),
@@ -196,7 +198,10 @@ function renderHeader() {
   elements.header.innerHTML = `
     <div class="header-row">
       <div class="header-copy">
-        <h1 class="header-title">张梓濠的小计划</h1>
+        <div class="header-title-row">
+          <h1 class="header-title">张梓濠的小计划</h1>
+          <span class="header-version">v${APP_VERSION}</span>
+        </div>
         <p class="header-subtitle">
           <strong>${escapeHTML(formatMonthDay(now))} · ${escapeHTML(formatWeekday(now))}</strong>
           <span>把说过的事变成能推进的步骤</span>

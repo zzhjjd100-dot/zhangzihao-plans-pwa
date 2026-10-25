@@ -125,3 +125,17 @@ test("no-plan extraction displays the notice and clears the draft", () => {
   assert.match(app, /openNoPlanNotice/);
   assert.match(app, /clearDraftInput\(\);\s*openNoPlanNotice\(\)/);
 });
+
+test("homepage title shows the current app version in small text", () => {
+  const app = read("app.js");
+  const css = read("styles.css");
+  const packageJSON = JSON.parse(read("package.json"));
+
+  assert.match(app, new RegExp(`APP_VERSION = "${packageJSON.version}"`));
+  assert.match(app, /class="header-title-row"/);
+  assert.match(app, /class="header-version"/);
+  assert.match(css, /\.header-title-row\s*\{/);
+  assert.match(css, /\.header-version\s*\{/);
+  assert.match(css, /font-size:\s*10px/);
+  assert.match(css, /white-space:\s*nowrap/);
+});
