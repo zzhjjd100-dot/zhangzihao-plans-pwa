@@ -1,0 +1,27 @@
+✔ manifest declares an installable dark standalone PWA (0.674875ms)
+✔ HTML includes iOS standalone metadata and required controls (0.586084ms)
+✔ service worker caches the full local app shell (0.226166ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.329958ms)
+✔ UI fonts stay compact and cards limit home lines (0.387792ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.547ms)
+✔ local date and task persistence code is included (0.149416ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40.814833
+200 index.html
+200 styles.css
+200 app.js
+200 extractor.js
+200 store.js
+200 sw.js
+200 manifest.webmanifest
+200 icons/icon-180.png
+200 icons/icon-192.png
+200 icons/icon-512.png
+200 icons/icon-512-maskable.png
+Round 2: PASSED

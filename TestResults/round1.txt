@@ -1,0 +1,17 @@
+✔ removes fillers, preserves importance, and extracts multiple plans (20.990334ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.431292ms)
+✔ classifies low and high importance (0.706709ms)
+✔ parses next week, next month, and colloquial two o'clock (0.287417ms)
+✔ mock speech transcript completes extraction pipeline (0.13875ms)
+✔ sorts days newest first and high importance first within a day (8.444ms)
+✔ completion can retain or remove and deletion is permanent (0.187292ms)
+✔ persists completion state and raw text (0.286917ms)
+✔ reopens completed plans (0.120791ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 62.489708

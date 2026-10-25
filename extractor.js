@@ -1,0 +1,407 @@
+const IMPORTANCE_RANK = {
+  low: 0,
+  medium: 1,
+  high: 2
+};
+
+const HIGH_KEYWORDS = [
+  "紧急", "必须", "务必", "立刻", "马上", "重要", "关键", "截止",
+  "最后期限", "不能忘", "别忘", "千万", "否则", "逾期", "面试",
+  "考试", "上线", "发布", "签合同", "付款", "交房租", "医院",
+  "不能漏", "不能迟", "不要漏", "发错"
+];
+
+const LOW_KEYWORDS = [
+  "不急", "有空", "顺便", "可选", "以后再说", "低优先", "不着急",
+  "看情况", "也可以", "尽量", "随便"
+];
+
+const FILLER_WORDS = new Set([
+  "嗯", "啊", "呃", "额", "哦", "唉", "那个", "就是说", "然后呢",
+  "你知道吗", "我跟你说", "好的", "好", "行", "可以", "知道了",
+  "明白了", "收到", "就这样", "我说完了", "大概就是这样"
+]);
+
+const STOP_WORDS = new Set([
+  "今天", "明天", "后天", "然后", "那个", "就是", "我们", "你们", "他们",
+  "这个", "一个", "一下", "需要", "可以", "记得", "事情", "时候", "计划",
+  "任务", "进行", "以及", "如果", "但是", "因为", "所以"
+]);
+
+export function importanceRank(value) {
+  return IMPORTANCE_RANK[value] ?? 1;
+}
+
+export function importanceLabel(value) {
+  return value === "high" ? "高重要" : value === "low" ? "低重要" : "中重要";
+}
+
+export function extractPlans(rawText, options = {}) {
+  const referenceDate = options.referenceDate
+    ? new Date(options.referenceDate)
+    : new Date();
+  const fallbackDate = options.defaultDate
+    ? new Date(options.defaultDate)
+    : referenceDate;
+  const fallbackImportance = options.defaultImportance || "medium";
+  const normalized = normalize(rawText);
+  const fragments = splitIntoFragments(normalized);
+  const plans = [];
+  let removedFillerCount = 0;
+
+  for (const fragment of fragments) {
+    const sanitized = removeFiller(fragment);
+    removedFillerCount += sanitized.removedCount;
+    const text = sanitized.text.trim();
+    if (!text || isPureFiller(text)) continue;
+
+    const dateResult = detectDate(text, referenceDate);
+    const importance = detectImportance(text);
+    plans.push({
+      id: createId(),
+      text,
+      date: (dateResult.date || fallbackDate).toISOString(),
+      importance: importance || fallbackImportance,
+      dateWasAutomaticallyInferred: Boolean(dateResult.date),
+      importanceWasAutomaticallyInferred: Boolean(importance)
+    });
+  }
+
+  if (plans.length === 0) {
+    const fallback = removeFiller(normalized).text.trim();
+    if (fallback) {
+      plans.push({
+        id: createId(),
+        text: fallback,
+        date: fallbackDate.toISOString(),
+        importance: fallbackImportance,
+        dateWasAutomaticallyInferred: false,
+        importanceWasAutomaticallyInferred: false
+      });
+    }
+  }
+
+  const deduped = deduplicatePlans(plans);
+  return {
+    plans: deduped,
+    keywords: extractKeywords(normalized),
+    removedFillerCount,
+    cleanedText: deduped.map((plan) => plan.text).join("；")
+  };
+}
+
+function normalize(text) {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function splitIntoFragments(text) {
+  let prepared = text
+    .replace(/(?:然后|接着|另外|还有|还要|对了|顺便说一下)[，,\s]+/g, "\n")
+    .replace(/(?:我说完了|大概就是这样|你明白吧)[。！？!?]?$/g, "");
+
+  const strongParts = prepared.split(/[。！？!?；;\n…]+/);
+  const fragments = [];
+
+  for (const part of strongParts) {
+    const commaParts = part
+      .split(/[，,]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    let current = "";
+
+    for (const commaPart of commaParts) {
+      if (!current) {
+        current = commaPart;
+      } else if (shouldStartNewCommaClause(commaPart)) {
+        fragments.push(current);
+        current = commaPart;
+      } else {
+        current += `，${commaPart}`;
+      }
+    }
+
+    if (current) fragments.push(current);
+  }
+
+  return fragments;
+}
+
+function shouldStartNewCommaClause(text) {
+  const actionKeywords = [
+    "要", "需要", "必须", "记得", "安排", "完成", "准备", "做", "写",
+    "发", "提交", "联系", "预约", "检查", "处理", "参加", "开会",
+    "买", "交", "见", "整理", "提醒"
+  ];
+  const datePrefixes = [
+    "今天", "明天", "后天", "大后天", "下周", "本周", "这周",
+    "周一", "周二", "周三", "周四", "周五", "周六", "周日",
+    "上午", "下午", "中午", "晚上", "明晚", "今晚"
+  ];
+  return (
+    actionKeywords.some((keyword) => text.includes(keyword)) &&
+    datePrefixes.some((prefix) => text.startsWith(prefix))
+  );
+}
+
+function removeFiller(text) {
+  const original = text.trim();
+  let result = original
+    .replace(
+      /^(?:(?:嗯+|啊+|呃+|额+|哦+|唉+|那个|就是说|然后呢|怎么说呢|其实吧|你知道吗|我跟你说|我和你说)[，,、.…\s]*)+/g,
+      ""
+    )
+    .replace(
+      /(?<=[，,。；;！？!?.…\s])(?:嗯+|啊+|呃+|额+|哦+|那个|就是说|你知道吗|我跟你说)[，,、.…\s]*/g,
+      ""
+    )
+    .replace(/(?:大概就是这样|我说完了|你明白吧|能听懂吗)[。！？!?]?$/g, "")
+    .replace(
+      /^(?:我今天|我)?(?:想|要|来)?(?:跟你说|和你说|说一下|讲一下|聊一下)(?:一件事|一下)?[，,：:\s]*/g,
+      ""
+    )
+    .replace(/[，,\s]+/g, "，")
+    .replace(/。+/g, "。")
+    .replace(/^[，,。；;\s]+/g, "")
+    .replace(/[，,。；;\s]+$/g, "")
+    .trim();
+
+  return {
+    text: result,
+    removedCount: result === original ? 0 : Math.max(1, original.length - result.length)
+  };
+}
+
+function isPureFiller(text) {
+  const compact = text.replace(/[\s，,。！？!?；;、.…]/g, "");
+  return (
+    FILLER_WORDS.has(compact) ||
+    (compact.length <= 3 && [...compact].every((char) => "嗯啊呃额哦唉".includes(char)))
+  );
+}
+
+function detectDate(text, referenceDate) {
+  const relative = detectRelativeDate(text, referenceDate);
+  if (relative) return { date: relative };
+
+  const detector = detectAbsoluteDate(text, referenceDate);
+  if (detector) return { date: detector };
+
+  return { date: null };
+}
+
+function detectRelativeDate(text, referenceDate) {
+  const base = startOfDay(referenceDate);
+  const relativeDays = [
+    ["大后天", 3],
+    ["后天", 2],
+    ["明天", 1],
+    ["今天", 0],
+    ["今晚", 0],
+    ["明晚", 1],
+    ["昨天", -1]
+  ];
+  const candidates = relativeDays
+    .filter(([term]) => text.includes(term))
+    .map(([, offset]) => addDays(base, offset))
+    .sort((a, b) => a - b);
+  let foundDate = candidates.at(-1) || null;
+
+  if (!foundDate) {
+    const weekdayMatch = lastMatch(
+      text,
+      /(下周|下星期|本周|这周|周|星期)([一二三四五六日天])/g
+    );
+    if (weekdayMatch) {
+      const prefix = weekdayMatch[1];
+      const weekday = weekdayNumber(weekdayMatch[2]);
+      const currentWeekday = referenceDate.getDay();
+      const mondayOffset = (currentWeekday + 6) % 7;
+      const targetOffset = (weekday + 6) % 7;
+
+      if (prefix.includes("下周") || prefix.includes("下星期")) {
+        const currentMonday = addDays(base, -mondayOffset);
+        foundDate = addDays(currentMonday, 7 + targetOffset);
+      } else if (prefix.includes("本周") || prefix.includes("这周")) {
+        const currentMonday = addDays(base, -mondayOffset);
+        foundDate = addDays(currentMonday, targetOffset);
+      } else {
+        foundDate = addDays(base, (weekday - currentWeekday + 7) % 7);
+      }
+    }
+  }
+
+  if (!foundDate) {
+    const nextMonthMatch = lastMatch(text, /下个月\s*(\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)/g);
+    if (nextMonthMatch) {
+      const nextMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 1);
+      foundDate = localDate(
+        nextMonth.getFullYear(),
+        nextMonth.getMonth(),
+        chineseNumber(nextMonthMatch[1])
+      );
+    }
+  }
+
+  if (!foundDate) {
+    const monthDay = lastMatch(
+      text,
+      /(\d{1,2}|[一二三四五六七八九十两]{1,3})月(\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)/g
+    );
+    if (monthDay) {
+      const month = chineseNumber(monthDay[1]);
+      const day = chineseNumber(monthDay[2]);
+      foundDate = localDate(referenceDate.getFullYear(), month - 1, day);
+      if (foundDate < startOfDay(referenceDate)) {
+        foundDate = localDate(referenceDate.getFullYear() + 1, month - 1, day);
+      }
+    }
+  }
+
+  const time = detectTime(text, foundDate || referenceDate, Boolean(foundDate));
+  if (time) foundDate = time;
+  return foundDate;
+}
+
+function detectAbsoluteDate(text, referenceDate) {
+  const datePattern =
+    /(\d{4}[年/-]\d{1,2}[月/-]\d{1,2}日?|\d{1,2}月\d{1,2}日?)/;
+  const match = text.match(datePattern);
+  if (!match) return null;
+  const parts = match[1].match(/\d+/g)?.map(Number);
+  if (!parts) return null;
+  const date = parts.length === 3
+    ? localDate(parts[0], parts[1] - 1, parts[2])
+    : localDate(referenceDate.getFullYear(), parts[0] - 1, parts[1]);
+  if (parts.length === 2 && date < startOfDay(referenceDate)) {
+    return localDate(referenceDate.getFullYear() + 1, parts[0] - 1, parts[1]);
+  }
+  return date;
+}
+
+function detectTime(text, date, hasExplicitDate) {
+  const match = lastMatch(
+    text,
+    /(凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*(\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时|:|：)(\d{1,2}|[一二三四五六七八九十两]{1,3})?(?:分)?/g
+  );
+  if (!match) return null;
+  let hour = chineseNumber(match[2]);
+  const minute = chineseNumber(match[3] || "0");
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return null;
+  if (!Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+
+  const period = match[1] || "";
+  if ((period.includes("下午") || period.includes("傍晚") || period.includes("晚上")) && hour < 12) {
+    hour += 12;
+  } else if (period.includes("中午") && hour < 11) {
+    hour += 12;
+  } else if (period.includes("凌晨") && hour === 12) {
+    hour = 0;
+  }
+
+  const result = new Date(date);
+  result.setHours(hour, minute, 0, 0);
+  if (!hasExplicitDate && result < new Date()) {
+    result.setDate(result.getDate() + 1);
+  }
+  return result;
+}
+
+function detectImportance(text) {
+  if (HIGH_KEYWORDS.some((keyword) => text.includes(keyword))) return "high";
+  if (LOW_KEYWORDS.some((keyword) => text.includes(keyword))) return "low";
+  return null;
+}
+
+function extractKeywords(text) {
+  const keywords = [];
+  try {
+    const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
+    for (const part of segmenter.segment(text)) {
+      const value = part.segment.trim();
+      if (
+        part.isWordLike &&
+        value.length >= 2 &&
+        !STOP_WORDS.has(value) &&
+        !/^[0-9年月日点分秒]+$/.test(value)
+      ) {
+        keywords.push(value);
+      }
+    }
+  } catch {
+    keywords.push(
+      ...text
+        .split(/[\s，,。！？!?；;、]+/)
+        .filter((value) => value.length >= 2 && !STOP_WORDS.has(value))
+    );
+  }
+
+  return [...new Set(keywords)].slice(0, 8);
+}
+
+function deduplicatePlans(plans) {
+  const seen = new Set();
+  return plans.filter((plan) => {
+    const key = plan.text.replace(/[\s，,。！？!?；;、]/g, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function weekdayNumber(text) {
+  return {
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    日: 0,
+    天: 0
+  }[text];
+}
+
+function chineseNumber(value) {
+  if (value == null) return NaN;
+  const text = String(value);
+  if (/^\d+$/.test(text)) return Number(text);
+  const digits = {
+    零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5,
+    六: 6, 七: 7, 八: 8, 九: 9
+  };
+  if (text === "十") return 10;
+  if (text.startsWith("十") && text.length === 2) return 10 + digits[text[1]];
+  if (text.endsWith("十") && text.length === 2) return digits[text[0]] * 10;
+  if (text.length === 3 && text[1] === "十") return digits[text[0]] * 10 + digits[text[2]];
+  return Number([...text].map((char) => digits[char] ?? "").join(""));
+}
+
+function lastMatch(text, expression) {
+  const flags = expression.flags.includes("g") ? expression.flags : `${expression.flags}g`;
+  const matches = [...text.matchAll(new RegExp(expression.source, flags))];
+  return matches.at(-1) || null;
+}
+
+function createId() {
+  return globalThis.crypto?.randomUUID?.() ||
+    `plan-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, count) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + count);
+  return result;
+}
+
+function localDate(year, monthIndex, day) {
+  return new Date(year, monthIndex, day, 0, 0, 0, 0);
+}
