@@ -674,7 +674,8 @@ function stripSchedulePrefixes(text) {
 }
 
 function normalizeTaskTitle(text) {
-  return text
+  const actionObject = normalizeActionObjectPhrase(text);
+  return actionObject
     .replace(/(?:而且|并且|然后|接着|之后|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后)[，,\s]*/g, "")
     .replace(/^把(.+?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
     .replace(/^(.{2,36}?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
@@ -697,6 +698,21 @@ function normalizeTaskTitle(text) {
     .replace(/^[，,。；;\s]+/g, "")
     .replace(/[，,。；;\s]+$/g, "")
     .trim();
+}
+
+function normalizeActionObjectPhrase(text) {
+  const match = text.match(
+    /^(.+?(?:作业|练习|卷子|试卷|错题|生词|单词|词汇|范文|作文|知识点))\s*(?:要|需要|得|必须|应该)\s*(做完|写完|做|写|完成|复习|预习|背|读)(?:一下|一遍|了|的)?$/u
+  );
+  if (!match) return text;
+
+  const object = match[1].replace(
+    /^(英语|数学|语文|化学|物理|生物|政治|历史|地理)的/u,
+    "$1"
+  );
+  const verb = match[2];
+  const action = /^(?:复习|预习|背|读)$/u.test(verb) ? verb : "完成";
+  return `${action}${object}`;
 }
 
 function detectDate(text, referenceDate) {

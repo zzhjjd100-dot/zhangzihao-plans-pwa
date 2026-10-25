@@ -1,25 +1,26 @@
-✔ removes fillers, preserves importance, and extracts multiple plans (16.499208ms)
-✔ does not drop conditional, person, deadline, or attachment details (0.421ms)
-✔ classifies low and high importance (1.084834ms)
-✔ parses next week, next month, and colloquial two o'clock (0.633334ms)
-✔ mock speech transcript completes extraction pipeline (0.172083ms)
-✔ moves relative date out of title and trailing importance into priority (0.170417ms)
-✔ a standalone importance comment upgrades the prior task and creates no extra item (0.128583ms)
-✔ summarizes English vocabulary and sample essay into compact items (0.635584ms)
-✔ keeps meaningful preparation verb while removing scheduling filler (0.247791ms)
-✔ summarizes a long passage into independent tasks with per-task metadata (0.868833ms)
-✔ recovers multiple tasks from a long speech without punctuation (0.276959ms)
-✔ removes meaningless connectors while preserving meaningful relational words (0.203667ms)
-✔ rejects feelings, opinions, questions, and past events as plans (1.017666ms)
-✔ accepts concrete feasible actions (0.207875ms)
-✔ summarizes the user's spoken study list into short actionable plans (0.435667ms)
-✔ keeps earlier subjects when later subjects are spoken (0.638584ms)
-✔ keeps the complete study list and applies the spoken low priority (0.528375ms)
-ℹ tests 17
+✔ removes fillers, preserves importance, and extracts multiple plans (16.742125ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.489959ms)
+✔ classifies low and high importance (0.656625ms)
+✔ parses next week, next month, and colloquial two o'clock (0.636708ms)
+✔ mock speech transcript completes extraction pipeline (0.176417ms)
+✔ moves relative date out of title and trailing importance into priority (0.174333ms)
+✔ a standalone importance comment upgrades the prior task and creates no extra item (0.127416ms)
+✔ summarizes English vocabulary and sample essay into compact items (0.615792ms)
+✔ keeps meaningful preparation verb while removing scheduling filler (0.212042ms)
+✔ summarizes a long passage into independent tasks with per-task metadata (0.830042ms)
+✔ recovers multiple tasks from a long speech without punctuation (0.254584ms)
+✔ removes meaningless connectors while preserving meaningful relational words (0.195208ms)
+✔ rejects feelings, opinions, questions, and past events as plans (1.036166ms)
+✔ accepts concrete feasible actions (0.202084ms)
+✔ summarizes the user's spoken study list into short actionable plans (0.426709ms)
+✔ keeps earlier subjects when later subjects are spoken (0.419709ms)
+✔ keeps the complete study list and applies the spoken low priority (0.318458ms)
+✔ turns modal study statements into short verb-object plans (0.299792ms)
+ℹ tests 18
 ℹ suites 0
-ℹ pass 17
+ℹ pass 18
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 67.567375
+ℹ duration_ms 63.664875

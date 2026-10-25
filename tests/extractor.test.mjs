@@ -244,3 +244,15 @@ test("keeps the complete study list and applies the spoken low priority", () => 
   );
   assert.ok(result.plans.every((plan) => !/(?:这个语段|概括得|提取错误|标记错)/.test(plan.text)));
 });
+
+test("turns modal study statements into short verb-object plans", () => {
+  for (const [text, expected] of [
+    ["化学作业要做", "完成化学作业"],
+    ["数学作业要写", "完成数学作业"],
+    ["英语卷子需要完成", "完成英语卷子"],
+    ["生物作业必须做完", "完成生物作业"]
+  ]) {
+    const result = extractPlans(text, { referenceDate });
+    assert.deepEqual(result.plans.map((plan) => plan.text), [expected]);
+  }
+});

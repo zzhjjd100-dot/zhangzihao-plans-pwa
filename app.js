@@ -11,7 +11,11 @@ import {
   toggledDaySet,
   visibleTasksForDay
 } from "./ui-state.js";
-import { appendFinalTranscript } from "./speech-text.js";
+import {
+  appendFinalTranscript,
+  chooseBestTranscript,
+  refineSpeechTranscript
+} from "./speech-text.js";
 
 const elements = {
   header: document.querySelector("#appHeader"),
@@ -399,6 +403,7 @@ function prepareReview(text) {
   });
 
   if (!result.plans.length) {
+    clearDraftInput();
     openNoPlanNotice();
     return;
   }
@@ -549,13 +554,19 @@ function closeReview() {
 }
 
 function finishComposer(message) {
-  elements.draft.value = "";
-  elements.draft.style.height = "";
+  clearDraftInput();
   elements.importance.value = "medium";
   elements.importanceControl.dataset.importance = "medium";
   updateComposerState();
   render();
   showToast(message);
+}
+
+function clearDraftInput() {
+  elements.draft.value = "";
+  elements.draft.style.height = "";
+  resizeDraft();
+  updateComposerState();
 }
 
 function handleToggleComplete(id) {
@@ -686,7 +697,7 @@ function setupSpeechRecognition() {
   recognition.lang = "zh-CN";
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
+  recognition.maxAlternatives = 5;
 
   recognition.onstart = () => {
     appState.recording = true;
@@ -700,7 +711,9 @@ function setupSpeechRecognition() {
     let finalText = "";
     let interimText = "";
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const transcript = event.results[index][0].transcript;
+      const transcript = refineSpeechTranscript(
+        chooseBestTranscript(event.results[index])
+      );
       if (event.results[index].isFinal) finalText += transcript;
       else interimText += transcript;
     }
@@ -835,7 +848,8 @@ function finishRecognitionSession() {
     !appState.speechHandled
   ) {
     appState.speechHandled = true;
-    setTimeout(() => prepareReview(finalText), 120);
+    const refinedText = refineSpeechTranscript(finalText);
+    setTimeout(() => prepareReview(refinedText), 120);
   }
 }
 

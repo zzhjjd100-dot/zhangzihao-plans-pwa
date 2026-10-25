@@ -1,25 +1,28 @@
-✔ manifest declares an installable dark standalone PWA (0.601708ms)
-✔ HTML includes iOS standalone metadata and required controls (0.696584ms)
-✔ service worker caches the full local app shell (0.1305ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.251791ms)
-✔ UI fonts stay compact and cards limit home lines (0.249917ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.291042ms)
-✔ local date and task persistence code is included (0.187917ms)
-✔ review screen receives and displays the generated overview (0.121333ms)
-✔ home day cards can collapse to high-priority items only (0.160458ms)
-✔ no-plan extraction displays the requested UI notice (0.679ms)
-✔ adds a comma after a long pause (0.457333ms)
-✔ pause punctuation window is one second (0.113833ms)
-✔ adds a comma before a restarted recognition segment (0.055416ms)
-✔ does not duplicate existing punctuation (0.053417ms)
-ℹ tests 14
+✔ manifest declares an installable dark standalone PWA (0.527375ms)
+✔ HTML includes iOS standalone metadata and required controls (0.572667ms)
+✔ service worker caches the full local app shell (0.115083ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.234541ms)
+✔ UI fonts stay compact and cards limit home lines (0.215333ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.2465ms)
+✔ local date and task persistence code is included (0.171458ms)
+✔ review screen receives and displays the generated overview (0.11575ms)
+✔ home day cards can collapse to high-priority items only (0.580917ms)
+✔ no-plan extraction displays the notice and clears the draft (0.209291ms)
+✔ adds a comma after a long pause (0.45575ms)
+✔ pause punctuation window is one second (0.107583ms)
+✔ adds a comma before a restarted recognition segment (0.053084ms)
+✔ does not duplicate existing punctuation (0.060291ms)
+✔ chooses the most task-like speech alternative (0.261125ms)
+✔ repairs common study-term speech recognition errors (0.295791ms)
+✔ does not append a repeated recognition result (0.057375ms)
+ℹ tests 17
 ℹ suites 0
-ℹ pass 14
+ℹ pass 17
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 49.110916
+ℹ duration_ms 41.272542
 present index.html
 present styles.css
 present app.js

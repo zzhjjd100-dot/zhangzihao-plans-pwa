@@ -58,6 +58,9 @@ test("speech has Web Speech support and keyboard dictation fallback", () => {
   assert.match(app, /键盘麦克风听写/);
   assert.match(app, /recognition\.lang = "zh-CN"/);
   assert.match(app, /recognition\.continuous = true/);
+  assert.match(app, /recognition\.maxAlternatives = 5/);
+  assert.match(app, /chooseBestTranscript/);
+  assert.match(app, /refineSpeechTranscript/);
   assert.match(app, /75_000/);
   assert.match(app, /10 \* 60 \* 1000/);
   assert.match(app, /startRecognitionAttempt\(false\)/);
@@ -116,8 +119,9 @@ test("home day cards can collapse to high-priority items only", () => {
   assert.match(uiState, /if \(expanded\) return \[\.\.\.items\]/);
 });
 
-test("no-plan extraction displays the requested UI notice", () => {
+test("no-plan extraction displays the notice and clears the draft", () => {
   const app = read("app.js");
   assert.match(app, /没有提取出计划/);
   assert.match(app, /openNoPlanNotice/);
+  assert.match(app, /clearDraftInput\(\);\s*openNoPlanNotice\(\)/);
 });
