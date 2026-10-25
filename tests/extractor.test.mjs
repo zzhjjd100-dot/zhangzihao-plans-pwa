@@ -221,3 +221,26 @@ test("keeps earlier subjects when later subjects are spoken", () => {
   assert.equal(new Date(result.plans[3].date).getHours(), 17);
   assert.ok(result.plans.every((plan) => !/[，,。；;]/.test(plan.text)));
 });
+
+test("keeps the complete study list and applies the spoken low priority", () => {
+  const text = "今天要把英语卷子给做了还有英语单词，英语的范文化学的错题也要给做啊，还有生物复习第五单元再把第五单元的作业给做完今天尽量就是最不重要的是把数学课班作业给做，下，这个语段前面概括得非常好，但最后一个不好，提取错误且重要性也标记错了";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语卷子",
+      "完成英语单词",
+      "完成英语范文",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物第五单元作业",
+      "完成数学课班作业"
+    ]
+  );
+  assert.deepEqual(
+    result.plans.map((plan) => plan.importance),
+    ["medium", "medium", "medium", "medium", "medium", "medium", "low"]
+  );
+  assert.ok(result.plans.every((plan) => !/(?:这个语段|概括得|提取错误|标记错)/.test(plan.text)));
+});

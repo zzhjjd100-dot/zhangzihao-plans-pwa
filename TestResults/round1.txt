@@ -1,24 +1,25 @@
-✔ removes fillers, preserves importance, and extracts multiple plans (21.5215ms)
-✔ does not drop conditional, person, deadline, or attachment details (0.481333ms)
-✔ classifies low and high importance (1.373416ms)
-✔ parses next week, next month, and colloquial two o'clock (0.830042ms)
-✔ mock speech transcript completes extraction pipeline (0.214625ms)
-✔ moves relative date out of title and trailing importance into priority (0.198792ms)
-✔ a standalone importance comment upgrades the prior task and creates no extra item (0.148917ms)
-✔ summarizes English vocabulary and sample essay into compact items (0.711958ms)
-✔ keeps meaningful preparation verb while removing scheduling filler (0.288542ms)
-✔ summarizes a long passage into independent tasks with per-task metadata (1.111541ms)
-✔ recovers multiple tasks from a long speech without punctuation (0.446208ms)
-✔ removes meaningless connectors while preserving meaningful relational words (0.277167ms)
-✔ rejects feelings, opinions, questions, and past events as plans (1.405416ms)
-✔ accepts concrete feasible actions (0.307583ms)
-✔ summarizes the user's spoken study list into short actionable plans (0.496917ms)
-✔ keeps earlier subjects when later subjects are spoken (0.746875ms)
-ℹ tests 16
+✔ removes fillers, preserves importance, and extracts multiple plans (16.499208ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.421ms)
+✔ classifies low and high importance (1.084834ms)
+✔ parses next week, next month, and colloquial two o'clock (0.633334ms)
+✔ mock speech transcript completes extraction pipeline (0.172083ms)
+✔ moves relative date out of title and trailing importance into priority (0.170417ms)
+✔ a standalone importance comment upgrades the prior task and creates no extra item (0.128583ms)
+✔ summarizes English vocabulary and sample essay into compact items (0.635584ms)
+✔ keeps meaningful preparation verb while removing scheduling filler (0.247791ms)
+✔ summarizes a long passage into independent tasks with per-task metadata (0.868833ms)
+✔ recovers multiple tasks from a long speech without punctuation (0.276959ms)
+✔ removes meaningless connectors while preserving meaningful relational words (0.203667ms)
+✔ rejects feelings, opinions, questions, and past events as plans (1.017666ms)
+✔ accepts concrete feasible actions (0.207875ms)
+✔ summarizes the user's spoken study list into short actionable plans (0.435667ms)
+✔ keeps earlier subjects when later subjects are spoken (0.638584ms)
+✔ keeps the complete study list and applies the spoken low priority (0.528375ms)
+ℹ tests 17
 ℹ suites 0
-ℹ pass 16
+ℹ pass 17
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 82.628458
+ℹ duration_ms 67.567375

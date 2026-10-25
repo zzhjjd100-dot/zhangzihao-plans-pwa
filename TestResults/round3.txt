@@ -1,17 +1,17 @@
-✔ manifest declares an installable dark standalone PWA (1.108834ms)
-✔ HTML includes iOS standalone metadata and required controls (1.851375ms)
-✔ service worker caches the full local app shell (0.171875ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.554333ms)
-✔ UI fonts stay compact and cards limit home lines (0.393708ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.417042ms)
-✔ local date and task persistence code is included (0.262125ms)
-✔ review screen receives and displays the generated overview (0.151458ms)
-✔ home day cards can collapse to high-priority items only (0.415459ms)
-✔ no-plan extraction displays the requested UI notice (0.811792ms)
-✔ adds a comma after a long pause (0.542209ms)
-✔ pause punctuation window is one second (0.128084ms)
-✔ adds a comma before a restarted recognition segment (0.091167ms)
-✔ does not duplicate existing punctuation (0.070458ms)
+✔ manifest declares an installable dark standalone PWA (0.601708ms)
+✔ HTML includes iOS standalone metadata and required controls (0.696584ms)
+✔ service worker caches the full local app shell (0.1305ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.251791ms)
+✔ UI fonts stay compact and cards limit home lines (0.249917ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.291042ms)
+✔ local date and task persistence code is included (0.187917ms)
+✔ review screen receives and displays the generated overview (0.121333ms)
+✔ home day cards can collapse to high-priority items only (0.160458ms)
+✔ no-plan extraction displays the requested UI notice (0.679ms)
+✔ adds a comma after a long pause (0.457333ms)
+✔ pause punctuation window is one second (0.113833ms)
+✔ adds a comma before a restarted recognition segment (0.055416ms)
+✔ does not duplicate existing punctuation (0.053417ms)
 ℹ tests 14
 ℹ suites 0
 ℹ pass 14
@@ -19,7 +19,7 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 53.707375
+ℹ duration_ms 49.110916
 present index.html
 present styles.css
 present app.js

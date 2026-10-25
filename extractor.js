@@ -13,7 +13,8 @@ const HIGH_KEYWORDS = [
 
 const LOW_KEYWORDS = [
   "不急", "有空", "顺便", "可选", "以后再说", "低优先", "不着急",
-  "看情况", "也可以", "尽量", "随便"
+  "看情况", "也可以", "尽量", "随便", "最不重要", "不重要",
+  "低重要性", "次要"
 ];
 
 const FILLER_WORDS = new Set([
@@ -192,6 +193,10 @@ function normalize(text) {
   return String(text || "")
     .replace(/\r\n?/g, "\n")
     .replace(/\u00a0/g, " ")
+    .replace(
+      /[，,]\s*(?:下[，,]\s*)?(?:这个|这段)?语段[\s\S]*$/g,
+      ""
+    )
     .replace(/英语箱子/g, "英语生词")
     .replace(/错题也(?:给)?错了/g, "错题也做了")
     .replace(/[ \t]+/g, " ")
@@ -236,7 +241,21 @@ function splitIntoFragments(text) {
     if (current) fragments.push(current);
   }
 
-  return fragments;
+  const mergedFragments = [];
+  for (let index = 0; index < fragments.length; index += 1) {
+    const fragment = fragments[index];
+    if (
+      /^(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后)$/.test(fragment) &&
+      fragments[index + 1]
+    ) {
+      mergedFragments.push(`${fragment}${fragments[index + 1]}`);
+      index += 1;
+    } else {
+      mergedFragments.push(fragment);
+    }
+  }
+
+  return mergedFragments;
 }
 
 function insertLooseTaskBoundaries(text) {
@@ -381,7 +400,8 @@ function detectImportanceOnly(text) {
 function summarizeTaskText(text) {
   const withoutImportanceComment = stripImportanceComment(text);
   const withoutSchedule = stripSchedulePrefixes(withoutImportanceComment);
-  const normalized = normalizeTaskTitle(withoutSchedule);
+  const withoutTrailingImportance = stripImportanceComment(withoutSchedule);
+  const normalized = normalizeTaskTitle(withoutTrailingImportance);
   if (!normalized) return [];
 
   const mistakeSummaries = summarizeMistakes(normalized);
@@ -574,13 +594,14 @@ function condenseLooseClause(text) {
 }
 
 function summarizeLearningItems(text) {
-  const hasVocabulary = /英语\s*(?:生词|单词|词汇)/.test(text);
-  const hasEssay = /英语\s*(?:范文|作文)|(?:读|背|看|学习)(?:一篇|一些)?\s*范文/.test(text);
+  const vocabularyMatch = text.match(/英语\s*的?\s*(生词|单词|词汇)/);
+  const hasVocabulary = Boolean(vocabularyMatch);
+  const hasEssay = /英语\s*的?\s*(?:范文|作文)|(?:读|背|看|学习)(?:一篇|一些)?\s*范文/.test(text);
   const hasCompletion = /(?:做完|写完|完成)/.test(text);
   if (!hasVocabulary && !hasEssay) return [];
 
   const residual = text
-    .replace(/英语\s*(?:生词|单词|词汇|范文|作文)/g, "")
+    .replace(/英语\s*的?\s*(?:生词|单词|词汇|范文|作文)/g, "")
     .replace(/(?:做完|写完|完成)/g, "")
     .replace(/(?:背|读|看|学习|复习|预习|温习|整理|记|默写|抄写|交|完成|准备)/g, "")
     .replace(/(?:一篇|一些|一点|十个|十个?)/g, "")
@@ -591,13 +612,20 @@ function summarizeLearningItems(text) {
   if (residual.length > 0) return [];
 
   const summaries = [];
-  if (hasVocabulary) summaries.push(hasCompletion ? "完成英语生词" : "英语生词");
+  if (hasVocabulary) {
+    const vocabulary = vocabularyMatch?.[1] || "生词";
+    summaries.push(hasCompletion ? `完成英语${vocabulary}` : `英语${vocabulary}`);
+  }
   if (hasEssay) summaries.push(hasCompletion ? "完成范文" : "范文");
   return summaries;
 }
 
 function stripImportanceComment(text) {
   return text
+    .replace(
+      /^(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|很|非常|特别|太)?(?:最)?不(?:太)?(?:重要|急)(?:的)?(?:是|任务|计划|事情)?[，,\s]*/g,
+      ""
+    )
     .replace(
       /^(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?[，,\s]*/g,
       ""
@@ -648,14 +676,16 @@ function stripSchedulePrefixes(text) {
 function normalizeTaskTitle(text) {
   return text
     .replace(/(?:而且|并且|然后|接着|之后|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后)[，,\s]*/g, "")
-    .replace(/^把(.+?)(?:给)?(写完|做完|做了|完成|搞定)$/g, "完成$1")
-    .replace(/^(.{2,36}?)(?:给)?(写完|做完|做了|完成|搞定)$/g, "完成$1")
+    .replace(/^把(.+?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
+    .replace(/^(.{2,36}?)(?:给)?(?:写完|做完|做了|完成|搞定|做)$/g, "完成$1")
     .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(复习|预习)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$2$1$3")
     .replace(/^(复习|预习)(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$1$2$3")
     .replace(/^复习(第[一二三四五六七八九十百\d]+单元)(英语|数学|语文|化学|物理|生物|政治|历史|地理)(?:的)?(知识|知识点|内容)?$/g, "复习$2$1$3")
     .replace(/^完成(.+?)的(第[一二三四五六七八九十百\d]+单元)(作业|练习|试卷)$/g, "完成$1$2$3")
     .replace(/^完成(第[一二三四五六七八九十百\d]+单元)的?(作业|练习|试卷)$/g, "完成$1$2")
     .replace(/^完成(.+?)的(作业|练习|试卷)$/g, "完成$1$2")
+    .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)的(生词|单词|词汇|范文|作文|错题|作业|卷子|试卷|练习|知识点)$/g, "$1$2")
+    .replace(/^完成(英语|数学|语文|化学|物理|生物|政治|历史|地理)的(生词|单词|词汇|范文|作文|错题|作业|卷子|试卷|练习|知识点)$/g, "完成$1$2")
     .replace(/^(.+?)的错题$/g, "完成$1错题")
     .replace(/^错题$/g, "完成错题")
     .replace(/[，,]\s*(?:这个|这|它)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?$/g, "")
@@ -880,8 +910,8 @@ function detectTime(text, date, hasExplicitDate) {
 }
 
 function detectImportance(text) {
-  if (HIGH_KEYWORDS.some((keyword) => text.includes(keyword))) return "high";
   if (LOW_KEYWORDS.some((keyword) => text.includes(keyword))) return "low";
+  if (HIGH_KEYWORDS.some((keyword) => text.includes(keyword))) return "high";
   return null;
 }
 
