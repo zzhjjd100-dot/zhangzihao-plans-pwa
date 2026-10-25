@@ -8,7 +8,7 @@ mkdir -p "$RESULTS"
 cd "$ROOT"
 
 echo "Round 1: advanced extraction and speech pipeline"
-TZ=Asia/Shanghai node --test tests/corpus.test.mjs tests/extractor.test.mjs \
+TZ=Asia/Shanghai node --test tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/extractor.test.mjs \
   | tee "$RESULTS/round1.txt"
 
 echo "Round 2: persistence, completion, deletion, and expandable day cards"

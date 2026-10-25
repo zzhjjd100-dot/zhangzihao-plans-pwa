@@ -1,20 +1,20 @@
-✔ manifest declares an installable dark standalone PWA (0.572458ms)
-✔ HTML includes iOS standalone metadata and required controls (0.5695ms)
-✔ service worker caches the full local app shell (0.112334ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.238125ms)
-✔ UI fonts stay compact and cards limit home lines (0.220791ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.2445ms)
-✔ local date and task persistence code is included (0.172917ms)
-✔ review screen receives and displays the generated overview (0.108125ms)
-✔ home day cards can collapse to high-priority items only (0.135958ms)
-✔ no-plan extraction displays the notice and clears the draft (0.75975ms)
-✔ adds a comma after a long pause (0.460667ms)
-✔ pause punctuation window is one second (0.10675ms)
-✔ adds a comma before a restarted recognition segment (0.056458ms)
-✔ does not duplicate existing punctuation (0.059041ms)
-✔ chooses the most task-like speech alternative (0.278291ms)
-✔ repairs common study-term speech recognition errors (0.390625ms)
-✔ does not append a repeated recognition result (0.057958ms)
+✔ manifest declares an installable dark standalone PWA (0.572417ms)
+✔ HTML includes iOS standalone metadata and required controls (0.628333ms)
+✔ service worker caches the full local app shell (0.173542ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.380042ms)
+✔ UI fonts stay compact and cards limit home lines (0.361208ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.646583ms)
+✔ local date and task persistence code is included (0.165375ms)
+✔ review screen receives and displays the generated overview (0.094ms)
+✔ home day cards can collapse to high-priority items only (0.184958ms)
+✔ no-plan extraction displays the notice and clears the draft (0.17875ms)
+✔ adds a comma after a long pause (0.363417ms)
+✔ pause punctuation window is one second (0.085ms)
+✔ adds a comma before a restarted recognition segment (0.042042ms)
+✔ does not duplicate existing punctuation (0.045584ms)
+✔ chooses the most task-like speech alternative (0.276375ms)
+✔ repairs common study-term speech recognition errors (0.333958ms)
+✔ does not append a repeated recognition result (0.054042ms)
 ℹ tests 17
 ℹ suites 0
 ℹ pass 17
@@ -22,7 +22,7 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 45.569541
+ℹ duration_ms 35.609709
 present index.html
 present styles.css
 present app.js
