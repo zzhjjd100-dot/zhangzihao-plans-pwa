@@ -30,6 +30,35 @@ const STOP_WORDS = new Set([
   "任务", "进行", "以及", "如果", "但是", "因为", "所以"
 ]);
 
+const ACTION_CUES = [
+  "提交", "完成", "联系", "预约", "检查", "开会", "参加", "整理",
+  "学习", "复习", "预习", "温习", "背", "读", "默写", "抄写", "写",
+  "做", "买", "交", "发", "准备", "确认", "处理", "继续", "跟", "和",
+  "把", "取", "送", "预订", "报名", "缴费", "付款", "打扫", "洗",
+  "修", "打印", "下载", "更新", "安装", "订", "安排", "提醒", "面试",
+  "考试", "体检", "复盘", "汇报", "讨论", "沟通", "申请", "上传",
+  "寄", "领取", "核对", "跟进", "拜访", "看", "听", "带", "去",
+  "到", "拿", "陪", "缴", "吃", "跑", "锻炼", "运动"
+];
+
+const AUTONOMOUS_TASKS = [
+  "开会", "面试", "考试", "体检", "复盘", "汇报", "培训", "复诊",
+  "上班", "休息", "运动", "锻炼"
+];
+
+const ACTION_CUE_PATTERN = new RegExp(
+  `(?:${[...ACTION_CUES].sort((left, right) => right.length - left.length).join("|")})`
+);
+
+const NON_PLAN_PATTERNS = [
+  /^(?:我)?(?:今天|明天|后天|现在)?(?:真的|很|有点|好|特别|太)?(?:累|忙|困|饿|开心|难过|无聊|热|冷|烦|焦虑|舒服)$/,
+  /^(?:我)?(?:觉得|感觉|认为|发现|看到|知道|听说|担心|希望)/,
+  /(?:做什么|干什么|怎么安排|有什么计划|有什么任务|如何安排|要不要|是否要)/,
+  /[吗么呢][？?]?$/,
+  /(?:大概就是这样|反正就是这样|你明白吧|你知道吗)/,
+  /^(?:这个|那个|这件事|那件事)?(?:真的|非常|特别|很)?(?:重要|关键|紧急|麻烦|复杂)(?:的)?(?:事情|任务|计划)?$/
+];
+
 export function importanceRank(value) {
   return IMPORTANCE_RANK[value] ?? 1;
 }
@@ -51,6 +80,7 @@ export function extractPlans(rawText, options = {}) {
   const plans = [];
   let removedFillerCount = 0;
   let activeDateContext = null;
+  let pendingImportanceContext = null;
 
   for (const fragment of fragments) {
     const sanitized = removeFiller(fragment);
@@ -68,9 +98,13 @@ export function extractPlans(rawText, options = {}) {
           plan.importance = importanceOnly;
           plan.importanceWasAutomaticallyInferred = true;
         }
+      } else {
+        pendingImportanceContext = importanceOnly;
       }
       continue;
     }
+
+    if (isPastStatement(originalFragment)) continue;
 
     const dateResult = resolveTaskDate(
       originalFragment,
@@ -82,14 +116,16 @@ export function extractPlans(rawText, options = {}) {
     const summaries = summarizeTaskText(originalFragment);
 
     for (const summary of summaries) {
+      if (!isFeasiblePlanText(summary)) continue;
       plans.push({
         id: createId(),
         text: summary,
         date: (dateResult.date || activeDateContext || fallbackDate).toISOString(),
-        importance: importance || fallbackImportance,
+        importance: importance || pendingImportanceContext || fallbackImportance,
         dateWasAutomaticallyInferred: Boolean(dateResult.date || activeDateContext),
-        importanceWasAutomaticallyInferred: Boolean(importance)
+        importanceWasAutomaticallyInferred: Boolean(importance || pendingImportanceContext)
       });
+      pendingImportanceContext = null;
     }
   }
 
@@ -271,7 +307,7 @@ function detectImportanceOnly(text) {
   const compact = text
     .replace(/[\s，,。！？!?；;、.…]/g, "")
     .replace(/^(?:这个|这件事|这|它)/, "")
-    .replace(/^(?:任务|计划|事情)/, "");
+    .replace(/^(?:任务|计划|事情|开会|会议|面试|考试|体检|项目)/, "");
 
   if (/^(?:真的|非常|特别|很|十分)?重要(?:的)?(?:任务|计划|事情)?$/.test(compact)) {
     return "high";
@@ -314,6 +350,7 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
   let activeDate = null;
 
   for (const clause of clauses) {
+    if (isPastStatement(clause)) continue;
     const dateResult = resolveTaskDate(clause, referenceDate, activeDate);
     activeDate = dateResult.contextDate || activeDate;
     const importance = detectImportance(clause);
@@ -322,6 +359,7 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
       ? summaries
       : [condenseLooseClause(clause)];
     for (const summary of condensed.filter(Boolean)) {
+      if (!isFeasiblePlanText(summary)) continue;
       fallbackPlans.push({
         id: createId(),
         text: summary,
@@ -335,8 +373,9 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
 
   if (fallbackPlans.length) return deduplicatePlans(fallbackPlans);
 
+  if (isPastStatement(cleaned)) return [];
   const condensed = condenseLooseClause(cleaned);
-  return condensed
+  return condensed && isFeasiblePlanText(condensed)
     ? [{
         id: createId(),
         text: condensed,
@@ -346,6 +385,65 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
         importanceWasAutomaticallyInferred: Boolean(detectImportance(cleaned))
       }]
     : [];
+}
+
+function isFeasiblePlanText(text) {
+  const normalized = String(text || "")
+    .replace(/[\s，,。！？!?；;、.…]/g, "")
+    .trim();
+  if (normalized.length < 2) return false;
+  if (normalized === "英语生词" || normalized === "范文") return true;
+  if (NON_PLAN_PATTERNS.some((pattern) => pattern.test(normalized))) return false;
+
+  if (
+    /^(?:昨天|上周|之前|刚刚|已经)/.test(normalized) &&
+    /(?:了|过|完)$/.test(normalized)
+  ) {
+    return false;
+  }
+
+  if (
+    /^(?:也许|可能|大概|看情况)/.test(normalized) &&
+    !/(?:必须|务必|记得|一定要|截止)/.test(normalized)
+  ) {
+    return false;
+  }
+
+  if (new RegExp(`${ACTION_CUE_PATTERN.source}(?:了|过)`).test(normalized)) {
+    return false;
+  }
+
+  const actionMatch = normalized.match(ACTION_CUE_PATTERN);
+  const hasAutonomousTask = AUTONOMOUS_TASKS.some((task) => normalized.includes(task));
+  if (!actionMatch && !hasAutonomousTask) return false;
+
+  if (hasAutonomousTask) return true;
+  if (!actionMatch) return false;
+
+  let residual = normalized;
+  for (const cue of [...ACTION_CUES].sort((left, right) => right.length - left.length)) {
+    residual = residual.replaceAll(cue, "");
+  }
+  residual = residual
+    .replace(
+      /(?:我们|你们|他们|我|你|他|她|它|这个|那个|这件事|那件事|事情|东西|一下|一点|一些|的|了|着|过|要|想|想要|希望|打算|需要|得|可以|应该|准备要|可能|也许|大概|就是|然后|接着|之后|因为|所以|但是|而且|并且|还要|等会|稍后|时候)/g,
+      ""
+    )
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+  return residual.length >= 1;
+}
+
+function isPastStatement(text) {
+  const compact = String(text || "")
+    .replace(/[\s，,。！？!?；;、.…]/g, "");
+  if (
+    /^(?:我|你|他|她|它)?(?:昨天|上周|之前|刚刚|已经)/.test(compact) &&
+    /(?:了|过|完)$/.test(compact)
+  ) {
+    return true;
+  }
+  return /(?:提交|完成|写|做|买|联系|整理|开会|参加|发|交|付款|缴费|处理|确认|复习|学习|背|读)(?:了|过)/.test(compact);
 }
 
 function condenseLooseClause(text) {
@@ -409,6 +507,7 @@ function stripSchedulePrefixes(text) {
     /^(?:先|首先|再|其次|最后)\s*/,
     /^(?:有空(?:的时候)?|看情况|尽量)\s*/,
     /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想|你要|你需要|你得|他要|他得|她要|她得|得)\s*/,
+    /^(?:我|你|他|她|它)?(?:觉得|感觉|认为|发现|希望)\s*/,
     /^(?:我|你|他|她|它)?(?:今天|明天|后天|大后天|明晚|今晚|昨天)(?:的)?\s*/,
     /^(?:我|你|他|她|它)?(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
     /^(?:我|你|他|她|它)?(?:下个月|本月|这个月)\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,

@@ -154,3 +154,26 @@ test("removes meaningless connectors while preserving meaningful relational word
   }
   assert.ok(result.plans[3].text.startsWith("和产品经理"));
 });
+
+test("rejects feelings, opinions, questions, and past events as plans", () => {
+  const nonPlanTexts = [
+    "我今天很累，而且觉得这个会议很重要。",
+    "明天干什么？",
+    "这个方案很好，大概就是这样。",
+    "我昨天提交了报告。",
+    "提交了报告。",
+    "明天准备。",
+    "明天想联系。"
+  ];
+  for (const text of nonPlanTexts) {
+    const result = extractPlans(text, { referenceDate });
+    assert.equal(result.plans.length, 0, `should not create a plan: ${text}`);
+  }
+});
+
+test("accepts concrete feasible actions", () => {
+  for (const text of ["明天写报告。", "明天开会。", "我想学习英语。", "去医院拿药。"]) {
+    const result = extractPlans(text, { referenceDate });
+    assert.equal(result.plans.length, 1, `should create a plan: ${text}`);
+  }
+});

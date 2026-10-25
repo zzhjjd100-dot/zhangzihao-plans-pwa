@@ -399,7 +399,7 @@ function prepareReview(text) {
   });
 
   if (!result.plans.length) {
-    showToast("没有识别到可保存的内容");
+    openNoPlanNotice();
     return;
   }
 
@@ -417,6 +417,21 @@ function prepareReview(text) {
   elements.reviewModal.hidden = false;
   requestAnimationFrame(() => {
     elements.reviewModal.querySelector(".review-text")?.focus();
+  });
+}
+
+function openNoPlanNotice() {
+  openActionModal({
+    title: "没有提取出计划",
+    message: "这句话更像描述、感受或补充信息。请补充具体动作和对象，例如“提交报告”。",
+    buttons: [
+      {
+        label: "继续修改",
+        handler: () => {
+          elements.draft.focus();
+        }
+      }
+    ]
   });
 }
 

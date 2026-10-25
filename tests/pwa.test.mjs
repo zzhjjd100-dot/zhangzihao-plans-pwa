@@ -115,3 +115,9 @@ test("home day cards can collapse to high-priority items only", () => {
   assert.match(uiState, /importance === "high"/);
   assert.match(uiState, /if \(expanded\) return \[\.\.\.items\]/);
 });
+
+test("no-plan extraction displays the requested UI notice", () => {
+  const app = read("app.js");
+  assert.match(app, /没有提取出计划/);
+  assert.match(app, /openNoPlanNotice/);
+});

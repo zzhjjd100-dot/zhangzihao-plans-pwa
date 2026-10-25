@@ -1,20 +1,22 @@
-✔ removes fillers, preserves importance, and extracts multiple plans (17.809459ms)
-✔ does not drop conditional, person, deadline, or attachment details (0.47625ms)
-✔ classifies low and high importance (0.698041ms)
-✔ parses next week, next month, and colloquial two o'clock (0.567083ms)
-✔ mock speech transcript completes extraction pipeline (0.667708ms)
-✔ moves relative date out of title and trailing importance into priority (0.174083ms)
-✔ a standalone importance comment upgrades the prior task and creates no extra item (0.145792ms)
-✔ summarizes English vocabulary and sample essay into compact items (0.560375ms)
-✔ keeps meaningful preparation verb while removing scheduling filler (0.221542ms)
-✔ summarizes a long passage into independent tasks with per-task metadata (0.3845ms)
-✔ recovers multiple tasks from a long speech without punctuation (0.217625ms)
-✔ removes meaningless connectors while preserving meaningful relational words (0.171708ms)
-ℹ tests 12
+✔ removes fillers, preserves importance, and extracts multiple plans (17.40325ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.505666ms)
+✔ classifies low and high importance (0.882583ms)
+✔ parses next week, next month, and colloquial two o'clock (1.261583ms)
+✔ mock speech transcript completes extraction pipeline (0.231166ms)
+✔ moves relative date out of title and trailing importance into priority (0.172084ms)
+✔ a standalone importance comment upgrades the prior task and creates no extra item (0.138667ms)
+✔ summarizes English vocabulary and sample essay into compact items (0.869084ms)
+✔ keeps meaningful preparation verb while removing scheduling filler (0.225292ms)
+✔ summarizes a long passage into independent tasks with per-task metadata (0.93525ms)
+✔ recovers multiple tasks from a long speech without punctuation (0.264542ms)
+✔ removes meaningless connectors while preserving meaningful relational words (0.199209ms)
+✔ rejects feelings, opinions, questions, and past events as plans (1.026292ms)
+✔ accepts concrete feasible actions (0.19675ms)
+ℹ tests 14
 ℹ suites 0
-ℹ pass 12
+ℹ pass 14
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 66.532375
+ℹ duration_ms 63.155042
