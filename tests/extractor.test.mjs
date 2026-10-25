@@ -106,7 +106,7 @@ test("summarizes a long passage into independent tasks with per-task metadata", 
 
   assert.deepEqual(
     result.plans.map((plan) => plan.text),
-    ["完成项目周报", "和产品经理开会确认发布时间", "整理书架", "英语生词", "范文"]
+    ["完成项目周报", "和产品经理开会确认发布时间", "整理书架", "完成英语生词", "完成英语范文"]
   );
   assert.deepEqual(
     result.plans.map((plan) => plan.importance),
@@ -128,7 +128,7 @@ test("recovers multiple tasks from a long speech without punctuation", () => {
 
   assert.deepEqual(
     result.plans.map((plan) => plan.text),
-    ["完成报告", "和产品经理开会确认发布时间", "整理书架", "英语生词", "范文"]
+    ["完成报告", "和产品经理开会确认发布时间", "整理书架", "完成英语生词", "完成英语范文"]
   );
   assert.deepEqual(
     result.plans.map((plan) => plan.importance),
@@ -197,6 +197,27 @@ test("summarizes the user's spoken study list into short actionable plans", () =
     result.plans.map((plan) => plan.importance),
     ["medium", "medium", "medium", "high", "medium", "medium"]
   );
+  assert.equal(new Date(result.plans[3].date).getHours(), 17);
+  assert.ok(result.plans.every((plan) => !/[，,。；;]/.test(plan.text)));
+});
+
+test("keeps earlier subjects when later subjects are spoken", () => {
+  const text = "今天要把英语卷子给做了英语箱子英语范文然后5:00前把化学错题给做了然后还有复习第五单元生物的知识然后再把，生物的作业做完然后看看最近生物有什么错题吧错题也给错了";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语卷子",
+      "完成英语生词",
+      "完成英语范文",
+      "完成化学错题",
+      "复习生物第五单元知识",
+      "完成生物作业",
+      "完成生物错题"
+    ]
+  );
+  assert.equal(result.plans.length, 7);
   assert.equal(new Date(result.plans[3].date).getHours(), 17);
   assert.ok(result.plans.every((plan) => !/[，,。；;]/.test(plan.text)));
 });

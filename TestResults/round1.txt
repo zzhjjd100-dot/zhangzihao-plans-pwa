@@ -1,23 +1,24 @@
-✔ removes fillers, preserves importance, and extracts multiple plans (20.008333ms)
-✔ does not drop conditional, person, deadline, or attachment details (0.685583ms)
-✔ classifies low and high importance (1.374084ms)
-✔ parses next week, next month, and colloquial two o'clock (0.740791ms)
-✔ mock speech transcript completes extraction pipeline (0.2235ms)
-✔ moves relative date out of title and trailing importance into priority (0.201625ms)
-✔ a standalone importance comment upgrades the prior task and creates no extra item (0.160292ms)
-✔ summarizes English vocabulary and sample essay into compact items (0.916708ms)
-✔ keeps meaningful preparation verb while removing scheduling filler (0.33025ms)
-✔ summarizes a long passage into independent tasks with per-task metadata (0.612209ms)
-✔ recovers multiple tasks from a long speech without punctuation (0.285417ms)
-✔ removes meaningless connectors while preserving meaningful relational words (0.246083ms)
-✔ rejects feelings, opinions, questions, and past events as plans (1.285417ms)
-✔ accepts concrete feasible actions (0.56775ms)
-✔ summarizes the user's spoken study list into short actionable plans (0.595417ms)
-ℹ tests 15
+✔ removes fillers, preserves importance, and extracts multiple plans (21.5215ms)
+✔ does not drop conditional, person, deadline, or attachment details (0.481333ms)
+✔ classifies low and high importance (1.373416ms)
+✔ parses next week, next month, and colloquial two o'clock (0.830042ms)
+✔ mock speech transcript completes extraction pipeline (0.214625ms)
+✔ moves relative date out of title and trailing importance into priority (0.198792ms)
+✔ a standalone importance comment upgrades the prior task and creates no extra item (0.148917ms)
+✔ summarizes English vocabulary and sample essay into compact items (0.711958ms)
+✔ keeps meaningful preparation verb while removing scheduling filler (0.288542ms)
+✔ summarizes a long passage into independent tasks with per-task metadata (1.111541ms)
+✔ recovers multiple tasks from a long speech without punctuation (0.446208ms)
+✔ removes meaningless connectors while preserving meaningful relational words (0.277167ms)
+✔ rejects feelings, opinions, questions, and past events as plans (1.405416ms)
+✔ accepts concrete feasible actions (0.307583ms)
+✔ summarizes the user's spoken study list into short actionable plans (0.496917ms)
+✔ keeps earlier subjects when later subjects are spoken (0.746875ms)
+ℹ tests 16
 ℹ suites 0
-ℹ pass 15
+ℹ pass 16
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 76.827375
+ℹ duration_ms 82.628458

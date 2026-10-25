@@ -1,10 +1,10 @@
-✔ sorts days newest first and high importance first within a day (10.884833ms)
-✔ completion can retain or remove and deletion is permanent (0.200917ms)
-✔ persists completion state and raw text (0.151083ms)
-✔ reopens completed plans (0.097ms)
-✔ collapsed day shows only high-priority tasks (0.711459ms)
-✔ expanded day shows all tasks in original sorted order (0.074042ms)
-✔ day expansion toggles independently (0.085791ms)
+✔ sorts days newest first and high importance first within a day (9.70625ms)
+✔ completion can retain or remove and deletion is permanent (0.281375ms)
+✔ persists completion state and raw text (0.168125ms)
+✔ reopens completed plans (0.108291ms)
+✔ collapsed day shows only high-priority tasks (0.797833ms)
+✔ expanded day shows all tasks in original sorted order (0.069167ms)
+✔ day expansion toggles independently (0.094583ms)
 ℹ tests 7
 ℹ suites 0
 ℹ pass 7
@@ -12,4 +12,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 56.928125
+ℹ duration_ms 56.430292

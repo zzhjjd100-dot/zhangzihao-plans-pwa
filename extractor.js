@@ -21,7 +21,8 @@ const FILLER_WORDS = new Set([
   "你知道吗", "我跟你说", "好的", "好", "行", "可以", "知道了",
   "明白了", "收到", "就这样", "我说完了", "大概就是这样",
   "一下", "我跟你说一下", "我和你说一下", "我说一下",
-  "而且", "并且", "等会", "等会儿", "等一会", "等一会儿", "稍后"
+  "而且", "并且", "等会", "等会儿", "等一会", "等一会儿", "稍后",
+  "把", "给"
 ]);
 
 const STOP_WORDS = new Set([
@@ -60,6 +61,7 @@ const NON_PLAN_PATTERNS = [
   /(?:做什么|干什么|怎么安排|有什么计划|有什么任务|如何安排|要不要|是否要)/,
   /[吗么呢][？?]?$/,
   /(?:大概就是这样|反正就是这样|你明白吧|你知道吗)/,
+  /^(?:看看|查看|看看最近|查看最近)$/,
   /^(?:这个|那个|这件事|那件事)?(?:真的|非常|特别|很)?(?:重要|关键|紧急|麻烦|复杂)(?:的)?(?:事情|任务|计划)?$/,
   /^(?:做)?题错$/,
   /^(?:把|给)?[\p{Script=Han}]{1,6}的$/u
@@ -89,6 +91,7 @@ export function extractPlans(rawText, options = {}) {
   let pendingImportanceContext = null;
   let pendingTimeContext = null;
   let activeSubjectContext = null;
+  let activeActionContext = null;
 
   for (const fragment of fragments) {
     const sanitized = removeFiller(fragment);
@@ -117,6 +120,8 @@ export function extractPlans(rawText, options = {}) {
       originalFragment.includes(subject)
     );
     if (explicitSubject) activeSubjectContext = explicitSubject;
+    const fragmentAction = detectTaskActionContext(originalFragment);
+    if (fragmentAction) activeActionContext = fragmentAction;
 
     const dateResult = resolveTaskDate(
       originalFragment,
@@ -132,7 +137,12 @@ export function extractPlans(rawText, options = {}) {
     let createdFromFragment = false;
 
     for (const summary of summaries) {
-      const enrichedSummary = enrichStudySummary(summary, activeSubjectContext);
+      let enrichedSummary = enrichStudySummary(summary, activeSubjectContext);
+      enrichedSummary = applyActionContext(
+        enrichedSummary,
+        activeActionContext,
+        activeSubjectContext
+      );
       if (!isFeasiblePlanText(enrichedSummary)) continue;
       const taskDate =
         (hasCurrentTemporal ? dateResult.date : null) ||
@@ -182,6 +192,8 @@ function normalize(text) {
   return String(text || "")
     .replace(/\r\n?/g, "\n")
     .replace(/\u00a0/g, " ")
+    .replace(/英语箱子/g, "英语生词")
+    .replace(/错题也(?:给)?错了/g, "错题也做了")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -229,7 +241,7 @@ function splitIntoFragments(text) {
 
 function insertLooseTaskBoundaries(text) {
   const markerPattern =
-    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
+    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|英语|数学|语文|化学|物理|生物|政治|历史|地理|然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
   const actionPattern =
     /(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|学习|复习|背|读|写|做|买|交|确认|继续|处理|跟|和|把)/;
   const boundaries = [];
@@ -245,6 +257,19 @@ function insertLooseTaskBoundaries(text) {
       continue;
     }
     if (/^(?:我|你|他|她|它)(?:觉得|打算|计划|想要|准备)?$/.test(before.trim())) {
+      continue;
+    }
+
+    const isStudySubject = STUDY_SUBJECTS.includes(marker);
+    if (isStudySubject) {
+      const preceding = before.trim();
+      const isLeadIn = /(?:要|需要|得|应该|准备|打算|计划|想|把|给)$/.test(preceding);
+      const isCompletedPrevious =
+        /(?:做了|做完|写完|完成|搞定|范文|生词|卷子|单词|词汇|知识|作业)$/.test(preceding);
+      const isPendingLookup = /(?:看看|查看|最近)$/.test(preceding);
+      if (!isLeadIn && !isPendingLookup && (preceding.includes(marker) || isCompletedPrevious)) {
+        boundaries.push(index);
+      }
       continue;
     }
 
@@ -359,6 +384,9 @@ function summarizeTaskText(text) {
   const normalized = normalizeTaskTitle(withoutSchedule);
   if (!normalized) return [];
 
+  const mistakeSummaries = summarizeMistakes(normalized);
+  if (mistakeSummaries.length) return mistakeSummaries;
+
   const learningSummaries = summarizeLearningItems(normalized);
   if (learningSummaries.length) return learningSummaries;
 
@@ -376,6 +404,34 @@ function enrichStudySummary(summary, subject) {
   }
   if (summary === "错题") return `完成${subject}错题`;
   return summary;
+}
+
+function applyActionContext(summary, actionContext, subject) {
+  if (!summary || !actionContext) return summary;
+  if (ACTION_CUE_PATTERN.test(summary)) return summary;
+  const isStudyObject =
+    /^(?:(?:英语|数学|语文|化学|物理|生物|政治|历史|地理))?(?:第[一二三四五六七八九十百\d]+单元)?(?:作业|练习|试卷|卷子|生词|单词|词汇|范文|作文|错题|知识点)$/.test(summary);
+  if (!isStudyObject) return summary;
+  const subjectPrefix = subject && !summary.includes(subject) ? subject : "";
+  return `${actionContext}${subjectPrefix}${summary}`;
+}
+
+function detectTaskActionContext(text) {
+  if (/(?:做完|做了|写完|写了|完成|搞定)/.test(text)) return "完成";
+  if (/(?:复习|温习)/.test(text)) return "复习";
+  if (/预习/.test(text)) return "预习";
+  return null;
+}
+
+function summarizeMistakes(text) {
+  if (!text.includes("错题")) return [];
+  const subject = STUDY_SUBJECTS.find((name) => text.includes(name));
+  const wantsCompletion = /(?:做|改|整理|错|完成).*(?:题|了|吧)|错题也/.test(text);
+  const wantsReview = /(?:看看|查看|有哪些|有什么)/.test(text);
+
+  if (wantsCompletion) return [`完成${subject || ""}错题`];
+  if (wantsReview) return [`查看${subject || ""}错题`];
+  return [];
 }
 
 function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImportance) {
@@ -488,6 +544,12 @@ function isPastStatement(text) {
   ) {
     return true;
   }
+  if (/(?:给做了|把.+做了|要.+做了)$/.test(compact)) {
+    return false;
+  }
+  if (/(?:错题|作业|卷子|范文|生词|单词|词汇|知识|练习|试卷).*做了$/.test(compact)) {
+    return false;
+  }
   return /(?:提交|完成|写|做|买|联系|整理|开会|参加|发|交|付款|缴费|处理|确认|复习|学习|背|读)(?:了|过)/.test(compact);
 }
 
@@ -586,12 +648,14 @@ function stripSchedulePrefixes(text) {
 function normalizeTaskTitle(text) {
   return text
     .replace(/(?:而且|并且|然后|接着|之后|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后)[，,\s]*/g, "")
-    .replace(/^把(.+?)(?:给)?(写完|做完|完成)$/g, "完成$1")
-    .replace(/^(.{2,36}?)(?:给)?(写完|做完|完成)$/g, "完成$1")
+    .replace(/^把(.+?)(?:给)?(写完|做完|做了|完成|搞定)$/g, "完成$1")
+    .replace(/^(.{2,36}?)(?:给)?(写完|做完|做了|完成|搞定)$/g, "完成$1")
     .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(复习|预习)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$2$1$3")
     .replace(/^(复习|预习)(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$1$2$3")
+    .replace(/^复习(第[一二三四五六七八九十百\d]+单元)(英语|数学|语文|化学|物理|生物|政治|历史|地理)(?:的)?(知识|知识点|内容)?$/g, "复习$2$1$3")
     .replace(/^完成(.+?)的(第[一二三四五六七八九十百\d]+单元)(作业|练习|试卷)$/g, "完成$1$2$3")
     .replace(/^完成(第[一二三四五六七八九十百\d]+单元)的?(作业|练习|试卷)$/g, "完成$1$2")
+    .replace(/^完成(.+?)的(作业|练习|试卷)$/g, "完成$1$2")
     .replace(/^(.+?)的错题$/g, "完成$1错题")
     .replace(/^错题$/g, "完成错题")
     .replace(/[，,]\s*(?:这个|这|它)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?$/g, "")
