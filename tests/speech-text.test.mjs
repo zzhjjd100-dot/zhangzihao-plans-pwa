@@ -11,6 +11,21 @@ test("adds a comma after a long pause", () => {
   );
 });
 
+test("pause punctuation window is one second", () => {
+  assert.equal(
+    appendFinalTranscript("写报告", "联系客户", {
+      gapMs: 999
+    }),
+    "写报告联系客户"
+  );
+  assert.equal(
+    appendFinalTranscript("写报告", "联系客户", {
+      gapMs: 1001
+    }),
+    "写报告，联系客户"
+  );
+});
+
 test("adds a comma before a restarted recognition segment", () => {
   assert.equal(
     appendFinalTranscript("先提交周报", "再联系客户", {

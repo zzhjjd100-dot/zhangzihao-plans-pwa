@@ -4,7 +4,7 @@ export function appendFinalTranscript(
   {
     gapMs = 0,
     pauseBefore = false,
-    pauseThresholdMs = 900
+    pauseThresholdMs = 1000
   } = {}
 ) {
   const current = String(existing || "").trim();
@@ -13,7 +13,7 @@ export function appendFinalTranscript(
 
   const shouldAddComma =
     Boolean(current) &&
-    (pauseBefore || gapMs >= pauseThresholdMs) &&
+    (pauseBefore || gapMs > pauseThresholdMs) &&
     !/[，,。！？!?；;：:\s]$/.test(current) &&
     !/^[，,。！？!?；;：:]/.test(addition);
 

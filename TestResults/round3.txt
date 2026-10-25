@@ -1,23 +1,24 @@
-✔ manifest declares an installable dark standalone PWA (0.655667ms)
-✔ HTML includes iOS standalone metadata and required controls (1.05725ms)
-✔ service worker caches the full local app shell (0.369584ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.475625ms)
-✔ UI fonts stay compact and cards limit home lines (0.568208ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.570084ms)
-✔ local date and task persistence code is included (0.449125ms)
-✔ review screen receives and displays the generated overview (0.292208ms)
-✔ home day cards can collapse to high-priority items only (0.334333ms)
-✔ adds a comma after a long pause (0.504333ms)
-✔ adds a comma before a restarted recognition segment (0.112375ms)
-✔ does not duplicate existing punctuation (0.065834ms)
-ℹ tests 12
+✔ manifest declares an installable dark standalone PWA (0.660834ms)
+✔ HTML includes iOS standalone metadata and required controls (2.361458ms)
+✔ service worker caches the full local app shell (0.656709ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.51975ms)
+✔ UI fonts stay compact and cards limit home lines (0.49025ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.60625ms)
+✔ local date and task persistence code is included (0.522542ms)
+✔ review screen receives and displays the generated overview (0.28ms)
+✔ home day cards can collapse to high-priority items only (0.441666ms)
+✔ adds a comma after a long pause (0.549625ms)
+✔ pause punctuation window is one second (0.122584ms)
+✔ adds a comma before a restarted recognition segment (0.0665ms)
+✔ does not duplicate existing punctuation (0.062833ms)
+ℹ tests 13
 ℹ suites 0
-ℹ pass 12
+ℹ pass 13
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 56.642916
+ℹ duration_ms 60.353792
 present index.html
 present styles.css
 present app.js

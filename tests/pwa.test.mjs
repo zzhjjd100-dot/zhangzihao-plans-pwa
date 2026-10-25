@@ -63,7 +63,7 @@ test("speech has Web Speech support and keyboard dictation fallback", () => {
   assert.match(app, /startRecognitionAttempt\(false\)/);
   assert.match(app, /appState\.recordingIntent/);
   assert.match(app, /appendFinalTranscript/);
-  assert.match(speechText, /pauseThresholdMs = 900/);
+  assert.match(speechText, /pauseThresholdMs = 1000/);
 });
 
 test("UI fonts stay compact and cards limit home lines", () => {

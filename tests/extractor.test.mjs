@@ -138,3 +138,19 @@ test("recovers multiple tasks from a long speech without punctuation", () => {
   assert.equal(new Date(result.plans[2].date).getDate(), 25);
   assert.ok(result.plans.every((plan) => !plan.text.includes("我今天得")));
 });
+
+test("removes meaningless connectors while preserving meaningful relational words", () => {
+  const result = extractPlans(
+    "明天写报告而且还要联系客户，等一会儿整理书架，并且和产品经理确认时间。",
+    { referenceDate }
+  );
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    ["写报告", "联系客户", "整理书架", "和产品经理确认时间"]
+  );
+  for (const connector of ["而且", "还要", "等会", "等一会儿", "并且"]) {
+    assert.ok(result.cleanedText.includes(connector) === false, `connector remained: ${connector}`);
+  }
+  assert.ok(result.plans[3].text.startsWith("和产品经理"));
+});
