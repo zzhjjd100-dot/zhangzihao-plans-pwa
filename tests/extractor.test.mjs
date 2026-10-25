@@ -177,3 +177,26 @@ test("accepts concrete feasible actions", () => {
     assert.equal(result.plans.length, 1, `should create a plan: ${text}`);
   }
 });
+
+test("summarizes the user's spoken study list into short actionable plans", () => {
+  const text = "啊今天就是要把英语卷子做完，英语生词做完，英语范文做完，然后，5:00前要把化学的，做题错，这个很重要化学的错题很重要，然后生物复习第五单元再把第五单元的作业给做完";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语卷子",
+      "完成英语生词",
+      "完成英语范文",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物第五单元作业"
+    ]
+  );
+  assert.deepEqual(
+    result.plans.map((plan) => plan.importance),
+    ["medium", "medium", "medium", "high", "medium", "medium"]
+  );
+  assert.equal(new Date(result.plans[3].date).getHours(), 17);
+  assert.ok(result.plans.every((plan) => !/[，,。；;]/.test(plan.text)));
+});

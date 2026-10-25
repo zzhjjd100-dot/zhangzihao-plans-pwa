@@ -1,17 +1,17 @@
-✔ manifest declares an installable dark standalone PWA (0.755416ms)
-✔ HTML includes iOS standalone metadata and required controls (0.799167ms)
-✔ service worker caches the full local app shell (0.358583ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.304208ms)
-✔ UI fonts stay compact and cards limit home lines (0.514458ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.724541ms)
-✔ local date and task persistence code is included (0.240708ms)
-✔ review screen receives and displays the generated overview (0.131708ms)
-✔ home day cards can collapse to high-priority items only (0.158041ms)
-✔ no-plan extraction displays the requested UI notice (0.637458ms)
-✔ adds a comma after a long pause (0.419792ms)
-✔ pause punctuation window is one second (0.106833ms)
-✔ adds a comma before a restarted recognition segment (0.052875ms)
-✔ does not duplicate existing punctuation (0.049375ms)
+✔ manifest declares an installable dark standalone PWA (0.720791ms)
+✔ HTML includes iOS standalone metadata and required controls (0.876292ms)
+✔ service worker caches the full local app shell (0.146792ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.239167ms)
+✔ UI fonts stay compact and cards limit home lines (0.7ms)
+✔ PWA icons are valid PNGs with expected dimensions (1.050292ms)
+✔ local date and task persistence code is included (0.191084ms)
+✔ review screen receives and displays the generated overview (0.114667ms)
+✔ home day cards can collapse to high-priority items only (0.149ms)
+✔ no-plan extraction displays the requested UI notice (0.77ms)
+✔ adds a comma after a long pause (0.476541ms)
+✔ pause punctuation window is one second (0.114167ms)
+✔ adds a comma before a restarted recognition segment (0.059584ms)
+✔ does not duplicate existing punctuation (0.089208ms)
 ℹ tests 14
 ℹ suites 0
 ℹ pass 14
@@ -19,7 +19,7 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 44.776875
+ℹ duration_ms 55.1075
 present index.html
 present styles.css
 present app.js

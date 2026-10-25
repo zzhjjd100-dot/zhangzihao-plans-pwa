@@ -46,6 +46,10 @@ const AUTONOMOUS_TASKS = [
   "上班", "休息", "运动", "锻炼"
 ];
 
+const STUDY_SUBJECTS = [
+  "英语", "数学", "语文", "化学", "物理", "生物", "政治", "历史", "地理"
+];
+
 const ACTION_CUE_PATTERN = new RegExp(
   `(?:${[...ACTION_CUES].sort((left, right) => right.length - left.length).join("|")})`
 );
@@ -56,7 +60,9 @@ const NON_PLAN_PATTERNS = [
   /(?:做什么|干什么|怎么安排|有什么计划|有什么任务|如何安排|要不要|是否要)/,
   /[吗么呢][？?]?$/,
   /(?:大概就是这样|反正就是这样|你明白吧|你知道吗)/,
-  /^(?:这个|那个|这件事|那件事)?(?:真的|非常|特别|很)?(?:重要|关键|紧急|麻烦|复杂)(?:的)?(?:事情|任务|计划)?$/
+  /^(?:这个|那个|这件事|那件事)?(?:真的|非常|特别|很)?(?:重要|关键|紧急|麻烦|复杂)(?:的)?(?:事情|任务|计划)?$/,
+  /^(?:做)?题错$/,
+  /^(?:把|给)?[\p{Script=Han}]{1,6}的$/u
 ];
 
 export function importanceRank(value) {
@@ -81,6 +87,8 @@ export function extractPlans(rawText, options = {}) {
   let removedFillerCount = 0;
   let activeDateContext = null;
   let pendingImportanceContext = null;
+  let pendingTimeContext = null;
+  let activeSubjectContext = null;
 
   for (const fragment of fragments) {
     const sanitized = removeFiller(fragment);
@@ -105,27 +113,47 @@ export function extractPlans(rawText, options = {}) {
     }
 
     if (isPastStatement(originalFragment)) continue;
+    const explicitSubject = STUDY_SUBJECTS.find((subject) =>
+      originalFragment.includes(subject)
+    );
+    if (explicitSubject) activeSubjectContext = explicitSubject;
 
     const dateResult = resolveTaskDate(
       originalFragment,
       referenceDate,
       activeDateContext
     );
+    const hasCurrentTemporal =
+      hasExplicitDateExpression(originalFragment) ||
+      hasTimeExpression(originalFragment);
     activeDateContext = dateResult.contextDate || activeDateContext;
     const importance = detectImportance(originalFragment);
     const summaries = summarizeTaskText(originalFragment);
+    let createdFromFragment = false;
 
     for (const summary of summaries) {
-      if (!isFeasiblePlanText(summary)) continue;
+      const enrichedSummary = enrichStudySummary(summary, activeSubjectContext);
+      if (!isFeasiblePlanText(enrichedSummary)) continue;
+      const taskDate =
+        (hasCurrentTemporal ? dateResult.date : null) ||
+        pendingTimeContext ||
+        activeDateContext ||
+        fallbackDate;
       plans.push({
         id: createId(),
-        text: summary,
-        date: (dateResult.date || activeDateContext || fallbackDate).toISOString(),
+        text: enrichedSummary,
+        date: taskDate.toISOString(),
         importance: importance || pendingImportanceContext || fallbackImportance,
-        dateWasAutomaticallyInferred: Boolean(dateResult.date || activeDateContext),
+        dateWasAutomaticallyInferred: Boolean(dateResult.date || pendingTimeContext || activeDateContext),
         importanceWasAutomaticallyInferred: Boolean(importance || pendingImportanceContext)
       });
+      createdFromFragment = true;
       pendingImportanceContext = null;
+      pendingTimeContext = null;
+    }
+
+    if (!createdFromFragment && hasTimeExpression(originalFragment) && dateResult.date) {
+      pendingTimeContext = dateResult.date;
     }
   }
 
@@ -166,7 +194,7 @@ function splitIntoFragments(text) {
 
   prepared = prepared
     .replace(
-      /(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g,
+      /(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交|把|跟|和))/g,
       "\n"
     );
 
@@ -201,7 +229,7 @@ function splitIntoFragments(text) {
 
 function insertLooseTaskBoundaries(text) {
   const markerPattern =
-    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|然后|接着|之后|而且|并且|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
+    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
   const actionPattern =
     /(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|学习|复习|背|读|写|做|买|交|确认|继续|处理|跟|和|把)/;
   const boundaries = [];
@@ -225,7 +253,7 @@ function insertLooseTaskBoundaries(text) {
     if (isTimeWithinDate) continue;
 
     const ahead = text.slice(index, index + 34);
-    const isConnector = /^(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|最后)$/.test(marker);
+    const isConnector = /^(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)$/.test(marker);
     if (!isConnector && !actionPattern.test(ahead)) continue;
     if (boundaries.at(-1) != null && index - boundaries.at(-1) < 3) continue;
     boundaries.push(index);
@@ -256,13 +284,17 @@ function shouldStartNewCommaClause(text) {
   ];
   const connectorPrefixes = [
     "而且", "并且", "然后", "接着", "之后", "另外", "还有", "还要",
-    "同时", "等会", "等会儿", "等一会", "等一会儿", "稍后", "最后"
+    "同时", "再", "等会", "等会儿", "等一会", "等一会儿", "稍后", "最后"
   ];
+  const studyPrefixes = STUDY_SUBJECTS;
   return (
     actionKeywords.some((keyword) => text.includes(keyword)) &&
     (
       datePrefixes.some((prefix) => text.startsWith(prefix)) ||
-      connectorPrefixes.some((prefix) => text.startsWith(prefix))
+      connectorPrefixes.some((prefix) => text.startsWith(prefix)) ||
+      studyPrefixes.some((prefix) => text.startsWith(prefix)) ||
+      /^(?:做)?题错$/.test(text) ||
+      /^(?:这个|这件事|这|它)/.test(text) && /(?:重要|关键|紧急)/.test(text)
     )
   );
 }
@@ -333,10 +365,23 @@ function summarizeTaskText(text) {
   return [normalized];
 }
 
+function enrichStudySummary(summary, subject) {
+  if (!summary || !subject) return summary;
+  if (STUDY_SUBJECTS.some((name) => summary.includes(name))) return summary;
+
+  if (
+    /^(?:完成|复习|预习)(?:第[一二三四五六七八九十百\d]+单元)?(?:作业|练习|试卷|卷子|生词|范文|错题)$/.test(summary)
+  ) {
+    return summary.replace(/^(完成|复习|预习)/, `$1${subject}`);
+  }
+  if (summary === "错题") return `完成${subject}错题`;
+  return summary;
+}
+
 function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImportance) {
   const cleaned = removeFiller(text).text
     .replace(/(?:嗯+|啊+|呃+|额+|哦+|你知道吗|我跟你说|说白了|其实吧|然后呢)[，,。！？!?；;\s]*/g, "，")
-    .replace(/(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g, "，")
+    .replace(/(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交|把|跟|和))/g, "，")
     .replace(/(?:今天|明天|后天|大后天|下周[一二三四五六日天])(?=(?:上午|下午|晚上)?(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g, "，")
     .replace(/[，,\s]+/g, "，")
     .replace(/^[，,。；;\s]+|[，,。；;\s]+$/g, "");
@@ -469,10 +514,12 @@ function condenseLooseClause(text) {
 function summarizeLearningItems(text) {
   const hasVocabulary = /英语\s*(?:生词|单词|词汇)/.test(text);
   const hasEssay = /英语\s*(?:范文|作文)|(?:读|背|看|学习)(?:一篇|一些)?\s*范文/.test(text);
+  const hasCompletion = /(?:做完|写完|完成)/.test(text);
   if (!hasVocabulary && !hasEssay) return [];
 
   const residual = text
     .replace(/英语\s*(?:生词|单词|词汇|范文|作文)/g, "")
+    .replace(/(?:做完|写完|完成)/g, "")
     .replace(/(?:背|读|看|学习|复习|预习|温习|整理|记|默写|抄写|交|完成|准备)/g, "")
     .replace(/(?:一篇|一些|一点|十个|十个?)/g, "")
     .replace(/(?:生词|单词|词汇|范文|作文)/g, "")
@@ -482,13 +529,17 @@ function summarizeLearningItems(text) {
   if (residual.length > 0) return [];
 
   const summaries = [];
-  if (hasVocabulary) summaries.push("英语生词");
-  if (hasEssay) summaries.push("范文");
+  if (hasVocabulary) summaries.push(hasCompletion ? "完成英语生词" : "英语生词");
+  if (hasEssay) summaries.push(hasCompletion ? "完成范文" : "范文");
   return summaries;
 }
 
 function stripImportanceComment(text) {
   return text
+    .replace(
+      /^(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?[，,\s]*/g,
+      ""
+    )
     .replace(
       /[\s，,]*(?:这个|这件事|这|它)?(?:任务|计划|事情)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?[。！!]*$/g,
       ""
@@ -504,6 +555,7 @@ function stripSchedulePrefixes(text) {
   let result = text.trim();
   const prefixes = [
     /^(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|顺便(?:说一下)?)\s*/,
+    /^(?:就是|其实就是|主要是|今天就是)\s*/,
     /^(?:先|首先|再|其次|最后)\s*/,
     /^(?:有空(?:的时候)?|看情况|尽量)\s*/,
     /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想|你要|你需要|你得|他要|他得|她要|她得|得)\s*/,
@@ -512,7 +564,7 @@ function stripSchedulePrefixes(text) {
     /^(?:我|你|他|她|它)?(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
     /^(?:我|你|他|她|它)?(?:下个月|本月|这个月)\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
     /^(?:我|你|他|她|它)?(?:\d{1,2}|[一二三四五六七八九十两]{1,3})月(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
-    /^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时|:|：)(?:\d{1,2}|[一二三四五六七八九十两]{1,3})?(?:分)?\s*/,
+    /^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时|:|：)(?:\d{1,2}|[一二三四五六七八九十两]{1,3})?(?:分)?\s*前?\s*/,
     /^(?:我)?要(?=去|把|交|提|写|做|买|联|预|检|处|参|开|整|复|背|读|学|准|完|发|跟|和)\s*/
   ];
 
@@ -534,7 +586,14 @@ function stripSchedulePrefixes(text) {
 function normalizeTaskTitle(text) {
   return text
     .replace(/(?:而且|并且|然后|接着|之后|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后)[，,\s]*/g, "")
-    .replace(/^把(.+?)(写完|做完)$/g, "完成$1")
+    .replace(/^把(.+?)(?:给)?(写完|做完|完成)$/g, "完成$1")
+    .replace(/^(.{2,36}?)(?:给)?(写完|做完|完成)$/g, "完成$1")
+    .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(复习|预习)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$2$1$3")
+    .replace(/^(复习|预习)(英语|数学|语文|化学|物理|生物|政治|历史|地理)\s*(第[一二三四五六七八九十百\d]+单元)$/g, "$1$2$3")
+    .replace(/^完成(.+?)的(第[一二三四五六七八九十百\d]+单元)(作业|练习|试卷)$/g, "完成$1$2$3")
+    .replace(/^完成(第[一二三四五六七八九十百\d]+单元)的?(作业|练习|试卷)$/g, "完成$1$2")
+    .replace(/^(.+?)的错题$/g, "完成$1错题")
+    .replace(/^错题$/g, "完成错题")
     .replace(/[，,]\s*(?:这个|这|它)?(?:真的|非常|特别|很|十分)?(?:重要|关键|紧急)(?:的)?(?:任务|计划|事情)?$/g, "")
     .replace(/(讨论|考虑|检查|确认|整理|处理)一下$/g, "$1")
     .replace(/看一下$/g, "看")
@@ -744,6 +803,8 @@ function detectTime(text, date, hasExplicitDate) {
     hour += 12;
   } else if (period.includes("凌晨") && hour === 12) {
     hour = 0;
+  } else if (!period && hour >= 1 && hour <= 6) {
+    hour += 12;
   }
 
   const result = new Date(date);
