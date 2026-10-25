@@ -880,9 +880,14 @@ summary:focus-visible {
 .modal-header p,
 .action-modal p {
   margin: 3px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--text-secondary);
   font-size: 10.5px;
   line-height: 1.45;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .review-list {

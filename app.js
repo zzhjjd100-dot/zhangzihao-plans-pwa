@@ -402,6 +402,7 @@ function prepareReview(text) {
 
   appState.review = {
     originalText: text,
+    summary: result.summary,
     keywords: result.keywords,
     removedFillerCount: result.removedFillerCount,
     plans: result.plans.map((plan) => ({
@@ -420,10 +421,12 @@ function renderReview() {
   const review = appState.review;
   if (!review) return;
 
-  elements.reviewTitle.textContent = "确认整理结果";
-  elements.reviewSummary.textContent = review.removedFillerCount > 0
-    ? `已整理 ${review.plans.length} 项，并清理语气词`
-    : `已整理 ${review.plans.length} 项，可继续调整`;
+  elements.reviewTitle.textContent = `确认整理结果 · ${review.plans.length} 项`;
+  elements.reviewSummary.textContent =
+    review.summary ||
+    (review.removedFillerCount > 0
+      ? `已清理语气词，可继续调整`
+      : `日期与重要性可继续调整`);
 
   elements.reviewList.innerHTML = review.plans.length
     ? review.plans.map((plan, index) => reviewItemHTML(plan, index)).join("")

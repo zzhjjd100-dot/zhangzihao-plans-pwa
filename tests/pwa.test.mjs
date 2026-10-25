@@ -97,6 +97,12 @@ test("local date and task persistence code is included", () => {
   assert.match(app, /store\.delete/);
 });
 
+test("review screen receives and displays the generated overview", () => {
+  const app = read("app.js");
+  assert.match(app, /summary: result\.summary/);
+  assert.match(app, /review\.summary/);
+});
+
 test("home day cards can collapse to high-priority items only", () => {
   const app = read("app.js");
   const uiState = read("ui-state.js");

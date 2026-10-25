@@ -99,3 +99,25 @@ test("keeps meaningful preparation verb while removing scheduling filler", () =>
   assert.equal(result.plans[0].text, "准备资料");
   assert.ok(!result.plans[0].text.includes("明天"));
 });
+
+test("summarizes a long passage into independent tasks with per-task metadata", () => {
+  const text = "嗯，我跟你说一下，明天上午十点先把项目周报写完，这个特别重要。下午三点和产品经理开会确认发布时间。后天有空整理书架，不急。另外下周一交英语生词和英语范文。";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    ["完成项目周报", "和产品经理开会确认发布时间", "整理书架", "英语生词", "范文"]
+  );
+  assert.deepEqual(
+    result.plans.map((plan) => plan.importance),
+    ["high", "medium", "low", "medium", "medium"]
+  );
+  assert.equal(new Date(result.plans[0].date).getDate(), 24);
+  assert.equal(new Date(result.plans[0].date).getHours(), 10);
+  assert.equal(new Date(result.plans[1].date).getDate(), 24);
+  assert.equal(new Date(result.plans[1].date).getHours(), 15);
+  assert.equal(new Date(result.plans[2].date).getDate(), 25);
+  assert.equal(new Date(result.plans[3].date).getDate(), 26);
+  assert.match(result.summary, /明天：完成项目周报/);
+  assert.match(result.summary, /后天：整理书架/);
+});
