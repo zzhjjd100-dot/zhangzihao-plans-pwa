@@ -52,6 +52,12 @@ const STUDY_SUBJECTS = [
   "英语", "数学", "语文", "化学", "物理", "生物", "政治", "历史", "地理"
 ];
 
+const STUDY_OBJECT_PATTERN_SOURCE =
+  `(?:${STUDY_SUBJECTS.join("|")})?\\s*(?:的)?\\s*(?:` +
+  "第[一二三四五六七八九十百\\d]+单元(?:的)?(?:知识|知识点|内容|作业|练习|测试)?|" +
+  "半张卷子|课班作业|分项测试|古诗词|卷子|试卷|测试|听说|单词|生词|词汇|" +
+  "作文|范文|错题|作业)";
+
 const ACTION_CUE_PATTERN = new RegExp(
   `(?:${[...ACTION_CUES].sort((left, right) => right.length - left.length).join("|")})`
 );
@@ -103,12 +109,20 @@ export function extractPlans(rawText, options = {}) {
     const importanceOnly = detectImportanceOnly(originalFragment);
     if (importanceOnly) {
       if (plans.length > 0) {
-        const targets = originalFragment.includes("都")
+        const targets = /(?:都|所有|全部)/.test(originalFragment)
           ? plans
           : [plans.at(-1)];
         for (const plan of targets) {
+          if (
+            importanceOnly === "high" &&
+            plan.importanceExplicit &&
+            plan.importance === "low"
+          ) {
+            continue;
+          }
           plan.importance = importanceOnly;
           plan.importanceWasAutomaticallyInferred = true;
+          plan.importanceExplicit = true;
         }
       } else {
         pendingImportanceContext = importanceOnly;
@@ -134,7 +148,10 @@ export function extractPlans(rawText, options = {}) {
       hasTimeExpression(originalFragment);
     activeDateContext = dateResult.contextDate || activeDateContext;
     const importance = detectImportance(originalFragment);
-    const summaries = summarizeTaskText(originalFragment);
+    const summaries = summarizeTaskText(originalFragment, {
+      subject: activeSubjectContext,
+      action: activeActionContext
+    });
     let createdFromFragment = false;
 
     for (const summary of summaries) {
@@ -144,6 +161,7 @@ export function extractPlans(rawText, options = {}) {
         activeActionContext,
         activeSubjectContext
       );
+      enrichedSummary = sanitizePlanTitle(enrichedSummary);
       if (!isFeasiblePlanText(enrichedSummary)) continue;
       const taskDate =
         (hasCurrentTemporal ? dateResult.date : null) ||
@@ -156,7 +174,8 @@ export function extractPlans(rawText, options = {}) {
         date: taskDate.toISOString(),
         importance: importance || pendingImportanceContext || fallbackImportance,
         dateWasAutomaticallyInferred: Boolean(dateResult.date || pendingTimeContext || activeDateContext),
-        importanceWasAutomaticallyInferred: Boolean(importance || pendingImportanceContext)
+        importanceWasAutomaticallyInferred: Boolean(importance || pendingImportanceContext),
+        importanceExplicit: Boolean(importance || pendingImportanceContext)
       });
       createdFromFragment = true;
       pendingImportanceContext = null;
@@ -179,7 +198,9 @@ export function extractPlans(rawText, options = {}) {
     );
   }
 
-  const deduped = deduplicatePlans(plans);
+  const deduped = deduplicatePlans(plans).map(
+    ({ importanceExplicit, ...plan }) => plan
+  );
   return {
     plans: deduped,
     keywords: extractKeywords(normalized),
@@ -197,10 +218,25 @@ function normalize(text) {
       /[，,]\s*(?:下[，,]\s*)?(?:这个|这段)?语段[\s\S]*$/g,
       ""
     )
+    .replace(
+      /[，,]?\s*这句话(?:的)?(?:识别结果|提取结果|整理结果)[\s\S]*$/g,
+      ""
+    )
     .replace(/英语箱子/g, "英语生词")
+    .replace(/英语听说给作文/g, "英语听说给做完")
+    .replace(/反相册试/g, "分项测试")
     .replace(/错题也(?:给)?错了/g, "错题也做了")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function sanitizePlanTitle(text) {
+  return String(text || "")
+    .replace(/(复习|预习)一点(?=[\p{Script=Han}])/gu, "$1")
+    .replace(/[，,。；;、：:…]+/gu, "")
+    .replace(/\s+/gu, "")
+    .replace(/和$/u, "")
     .trim();
 }
 
@@ -209,12 +245,18 @@ function splitIntoFragments(text) {
     .replace(/(?:首先|其次|然后|接着|之后|最后|而且|并且|另外|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|对了|顺便说一下)[，,\s]+/g, "\n")
     .replace(/(?:我说完了|大概就是这样|你明白吧)[。！？!?]?$/g, "");
 
+  prepared = prepared.replace(
+    /((?:这个|这件|这项)?(?:真的|很|非常|特别|太)?不(?:太)?(?:重要|急)(?:的)?(?:任务|计划|事情)?)\s*(?=(?:前面(?:的)?所有|以上所有|全部|所有|这些).*?(?:重要|关键|紧急))/gu,
+    "$1\n"
+  );
+
   prepared = prepared
     .replace(
       /(?:然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交|把|跟|和))/g,
       "\n"
     );
 
+  prepared = insertStudyObjectBoundaries(prepared);
   prepared = insertLooseTaskBoundaries(prepared);
 
   const strongParts = prepared.split(/[。！？!?；;\n…]+/);
@@ -245,7 +287,7 @@ function splitIntoFragments(text) {
   for (let index = 0; index < fragments.length; index += 1) {
     const fragment = fragments[index];
     if (
-      /^(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后)$/.test(fragment) &&
+      /^(?:(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)(?:把|给)?|把|给)$/.test(fragment) &&
       fragments[index + 1]
     ) {
       mergedFragments.push(`${fragment}${fragments[index + 1]}`);
@@ -258,9 +300,56 @@ function splitIntoFragments(text) {
   return mergedFragments;
 }
 
+function insertStudyObjectBoundaries(text) {
+  const matches = [...text.matchAll(new RegExp(STUDY_OBJECT_PATTERN_SOURCE, "gu"))];
+  if (matches.length < 2) return text;
+
+  const boundaries = [];
+  for (let index = 1; index < matches.length; index += 1) {
+    const objectIndex = matches[index].index;
+    const before = text.slice(Math.max(0, objectIndex - 16), objectIndex);
+    if (
+      /(?:最|不)?(?:太)?重要(?:的)?(?:是)?(?:把|给)?[，,\s]*$/u.test(before) ||
+      /(?:这个|这|它)?(?:真的|很|非常|特别)?(?:重要|关键|紧急)[，,\s]*$/u.test(before)
+    ) {
+      continue;
+    }
+    const attachedAction = before.match(
+      /(?:完成|复习|温习|预习|背|读|默写|抄写|写|做|整理|学习)(?:一点|一下)?[，,]?\s*$/u
+    );
+    if (attachedAction) {
+      const actionStart = objectIndex - attachedAction[0].length;
+      const precedingTask = text.slice(Math.max(0, actionStart - 28), actionStart);
+      if (
+        /(?:单词|作文|卷子|试卷|测试|错题|作业|单元|古诗词)(?:做完|写完|做了|完成|搞定)?[，,\s]*$/u.test(precedingTask)
+      ) {
+        boundaries.push(actionStart);
+      }
+      continue;
+    }
+
+    const connector = before.match(
+      /(?:而且|并且|另外|然后|接着|之后|还有|还要|同时|以及|和)\s*(?:把|给)?\s*$/u
+    );
+    const boundary = connector
+      ? objectIndex - connector[0].length
+      : objectIndex;
+    if (boundary > 0 && boundary !== boundaries.at(-1)) boundaries.push(boundary);
+  }
+
+  if (!boundaries.length) return text;
+  let result = "";
+  let cursor = 0;
+  for (const boundary of boundaries) {
+    result += `${text.slice(cursor, boundary).trim()}\n`;
+    cursor = boundary;
+  }
+  return `${result}${text.slice(cursor).trim()}`;
+}
+
 function insertLooseTaskBoundaries(text) {
   const markerPattern =
-    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|英语|数学|语文|化学|物理|生物|政治|历史|地理|然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
+    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|睡前|起床后|饭前|饭后|英语|数学|语文|化学|物理|生物|政治|历史|地理|然后|接着|之后|而且|并且|另外|还有|还要|同时|再|等会(?:儿)?|等一会(?:儿)?|稍后|最后)/g;
   const actionPattern =
     /(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|学习|复习|背|读|写|做|买|交|确认|继续|处理|跟|和|把)/;
   const boundaries = [];
@@ -282,11 +371,13 @@ function insertLooseTaskBoundaries(text) {
     const isStudySubject = STUDY_SUBJECTS.includes(marker);
     if (isStudySubject) {
       const preceding = before.trim();
-      const isLeadIn = /(?:要|需要|得|应该|准备|打算|计划|想|把|给)$/.test(preceding);
+      const isLeadIn = /(?:要|需要|得|应该|准备|打算|计划|想|把|给|完成|复习|温习|预习|背|读|写|做|整理|学习)$/.test(preceding);
       const isCompletedPrevious =
         /(?:做了|做完|写完|完成|搞定|范文|生词|卷子|单词|词汇|知识|作业)$/.test(preceding);
       const isPendingLookup = /(?:看看|查看|最近)$/.test(preceding);
-      if (!isLeadIn && !isPendingLookup && (preceding.includes(marker) || isCompletedPrevious)) {
+      const isImportanceLeadIn =
+        /(?:这个|这|它)?(?:真的|很|非常|特别)?(?:重要|关键|紧急)$/.test(preceding);
+      if (!isLeadIn && !isPendingLookup && !isImportanceLeadIn && (preceding.includes(marker) || isCompletedPrevious)) {
         boundaries.push(index);
       }
       continue;
@@ -315,6 +406,11 @@ function insertLooseTaskBoundaries(text) {
 }
 
 function shouldStartNewCommaClause(text) {
+  if (
+    /^(?:这个|这件|这项|前面|以上|全部|所有|这些).*?(?:重要|关键|紧急)/u.test(text)
+  ) {
+    return true;
+  }
   const actionKeywords = [
     "要", "需要", "必须", "记得", "安排", "完成", "准备", "做", "写",
     "发", "提交", "联系", "预约", "检查", "处理", "参加", "开会",
@@ -324,16 +420,21 @@ function shouldStartNewCommaClause(text) {
   const datePrefixes = [
     "今天", "明天", "后天", "大后天", "下周", "本周", "这周",
     "周一", "周二", "周三", "周四", "周五", "周六", "周日",
-    "上午", "下午", "中午", "晚上", "明晚", "今晚"
+    "上午", "下午", "中午", "晚上", "明晚", "今晚",
+    "睡前", "起床后", "饭前", "饭后"
   ];
   const connectorPrefixes = [
     "而且", "并且", "然后", "接着", "之后", "另外", "还有", "还要",
     "同时", "再", "等会", "等会儿", "等一会", "等一会儿", "稍后", "最后"
   ];
   const studyPrefixes = STUDY_SUBJECTS;
+  const startsWithAction = actionKeywords.some((keyword) =>
+    text.startsWith(keyword)
+  );
   return (
     actionKeywords.some((keyword) => text.includes(keyword)) &&
     (
+      startsWithAction ||
       datePrefixes.some((prefix) => text.startsWith(prefix)) ||
       connectorPrefixes.some((prefix) => text.startsWith(prefix)) ||
       studyPrefixes.some((prefix) => text.startsWith(prefix)) ||
@@ -382,6 +483,7 @@ function isPureFiller(text) {
 function detectImportanceOnly(text) {
   const compact = text
     .replace(/[\s，,。！？!?；;、.…]/g, "")
+    .replace(/^(?:前面(?:的)?所有|前面|以上所有|全部|所有|这些)(?:都)?/, "")
     .replace(/^(?:这个|这件事|这|它)/, "")
     .replace(/^(?:任务|计划|事情|开会|会议|面试|考试|体检|项目)/, "");
 
@@ -397,12 +499,15 @@ function detectImportanceOnly(text) {
   return null;
 }
 
-function summarizeTaskText(text) {
+function summarizeTaskText(text, context = {}) {
   const withoutImportanceComment = stripImportanceComment(text);
   const withoutSchedule = stripSchedulePrefixes(withoutImportanceComment);
   const withoutTrailingImportance = stripImportanceComment(withoutSchedule);
   const normalized = normalizeTaskTitle(withoutTrailingImportance);
   if (!normalized) return [];
+
+  const studySummary = summarizeStudyObjectTask(normalized, context);
+  if (studySummary) return [studySummary];
 
   const mistakeSummaries = summarizeMistakes(normalized);
   if (mistakeSummaries.length) return mistakeSummaries;
@@ -411,6 +516,45 @@ function summarizeTaskText(text) {
   if (learningSummaries.length) return learningSummaries;
 
   return [normalized];
+}
+
+function summarizeStudyObjectTask(text, { subject, action } = {}) {
+  const matches = [...text.matchAll(new RegExp(STUDY_OBJECT_PATTERN_SOURCE, "gu"))];
+  if (!matches.length) return null;
+
+  const rawObject = matches.at(-1)[0];
+  const detectedSubject = STUDY_SUBJECTS.find((name) => rawObject.includes(name));
+  const resolvedSubject = detectedSubject || subject || "";
+  const resolvedAction = detectStudyAction(text) || action || "完成";
+  const timingPrefix = /睡前/u.test(text) ? "睡前" : "";
+
+  let object = rawObject
+    .replace(/^(英语|数学|语文|化学|物理|生物|政治|历史|地理)的/u, "$1")
+    .replace(/^的/u, "")
+    .replace(/(?:给)?(?:做完|写完|做了|完成)$/u, "")
+    .replace(/[，,。；;、：:…]/gu, "")
+    .trim();
+
+  if (!object) return null;
+  if (
+    resolvedSubject &&
+    !STUDY_SUBJECTS.some((name) => object.includes(name))
+  ) {
+    object = `${resolvedSubject}${object}`;
+  }
+
+  return `${timingPrefix}${resolvedAction}${object}`;
+}
+
+function detectStudyAction(text) {
+  if (/预习/u.test(text)) return "预习";
+  if (/(?:复习|温习)/u.test(text)) return "复习";
+  if (/默写/u.test(text)) return "默写";
+  if (/抄写/u.test(text)) return "抄写";
+  if (/(?:背诵|背)/u.test(text)) return "背";
+  if (/(?:朗读|读)/u.test(text)) return "读";
+  if (/(?:做完|写完|做了|完成|搞定)/u.test(text)) return "完成";
+  return null;
 }
 
 function enrichStudySummary(summary, subject) {
@@ -440,6 +584,10 @@ function detectTaskActionContext(text) {
   if (/(?:做完|做了|写完|写了|完成|搞定)/.test(text)) return "完成";
   if (/(?:复习|温习)/.test(text)) return "复习";
   if (/预习/.test(text)) return "预习";
+  if (/默写/.test(text)) return "默写";
+  if (/抄写/.test(text)) return "抄写";
+  if (/(?:背诵|背)/.test(text)) return "背";
+  if (/(?:朗读|读)/.test(text)) return "读";
   return null;
 }
 

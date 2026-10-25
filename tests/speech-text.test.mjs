@@ -66,8 +66,8 @@ test("chooses the most task-like speech alternative", () => {
 
 test("repairs common study-term speech recognition errors", () => {
   assert.equal(
-    refineSpeechTranscript("画学错提，英语泛文，英语单子，生物复习第五单员，化学作业要坐"),
-    "化学错题，英语范文，英语单词，生物复习第五单元，化学作业要做"
+    refineSpeechTranscript("画学错提，英语泛文，英语单子，生物复习第五单员，化学作业要坐，英语听说给作文，语文反相册试"),
+    "化学错题，英语范文，英语单词，生物复习第五单元，化学作业要做，英语听说给做完，语文分项测试"
   );
 });
 

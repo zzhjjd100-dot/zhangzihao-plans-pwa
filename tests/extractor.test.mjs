@@ -88,7 +88,7 @@ test("summarizes English vocabulary and sample essay into compact items", () => 
   const result = extractPlans("明天要背英语生词和英语范文。", {
     referenceDate
   });
-  assert.deepEqual(result.plans.map((plan) => plan.text), ["英语生词", "范文"]);
+  assert.deepEqual(result.plans.map((plan) => plan.text), ["背英语生词", "背英语范文"]);
   assert.ok(result.plans.every((plan) => new Date(plan.date).getDate() === 24));
 });
 
@@ -255,4 +255,92 @@ test("turns modal study statements into short verb-object plans", () => {
     const result = extractPlans(text, { referenceDate });
     assert.deepEqual(result.plans.map((plan) => plan.text), [expected]);
   }
+});
+
+test("extracts a long study list with clean titles and scoped importance", () => {
+  const text = "今天要把英语单词英语作文，英语卷子还有英语听说给作文然后把语文的半张卷子和反相册试给做完还有化学的错题做完复习生物的第五单元然后，完成生物作业，睡前复习一点，语文古诗词，这个不重要，前面的所有都很重要，这句话识别结果非常糟糕，重要性也没有识别出来，罗列出来的计划里还有逗号，语音识别精度也有问题，连计划都不是单纯的名词短语或动宾短语，问题非常多，需要大调整，我很生气";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语单词",
+      "完成英语作文",
+      "完成英语卷子",
+      "完成英语听说",
+      "完成语文半张卷子",
+      "完成语文分项测试",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物作业",
+      "睡前复习语文古诗词"
+    ]
+  );
+  assert.deepEqual(
+    result.plans.map((plan) => plan.importance),
+    ["high", "high", "high", "high", "high", "high", "high", "high", "high", "low"]
+  );
+  assert.ok(result.plans.every((plan) => !/[，,。；;、：:]/.test(plan.text)));
+  assert.ok(result.plans.every((plan) => !/(?:识别结果|重要性也没有|问题非常多|我很生气)/.test(plan.text)));
+});
+
+test("keeps every study object when the list has no punctuation", () => {
+  const result = extractPlans(
+    "英语单词英语作文英语卷子英语听说语文半张卷子分项测试化学错题复习生物第五单元完成生物作业",
+    { referenceDate }
+  );
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语单词",
+      "完成英语作文",
+      "完成英语卷子",
+      "完成英语听说",
+      "完成语文半张卷子",
+      "完成语文分项测试",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物作业"
+    ]
+  );
+});
+
+test("splits adjacent action clauses and preserves an explicit low item", () => {
+  const result = extractPlans("明天写报告，联系客户。这个不重要。前面的所有都很重要", {
+    referenceDate
+  });
+
+  assert.deepEqual(
+    result.plans.map((plan) => [plan.text, plan.importance]),
+    [
+      ["写报告", "high"],
+      ["联系客户", "low"]
+    ]
+  );
+});
+
+test("keeps bedtime review separate from the preceding biology homework", () => {
+  const result = extractPlans(
+    "英语单词英语作文英语卷子英语听说给作文语文半张卷子和反相册试做完化学错题做完复习生物第五单元完成生物作业睡前一并复习语文古诗词这个不重要前面的所有都很重要",
+    { referenceDate }
+  );
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    [
+      "完成英语单词",
+      "完成英语作文",
+      "完成英语卷子",
+      "完成英语听说",
+      "完成语文半张卷子",
+      "完成语文分项测试",
+      "完成化学错题",
+      "复习生物第五单元",
+      "完成生物作业",
+      "睡前复习语文古诗词"
+    ]
+  );
+  assert.equal(result.plans.at(-1).importance, "low");
+  assert.ok(result.plans.slice(0, -1).every((plan) => plan.importance === "high"));
 });
