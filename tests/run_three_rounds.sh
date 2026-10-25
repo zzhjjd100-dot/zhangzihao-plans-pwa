@@ -16,7 +16,8 @@ TZ=Asia/Shanghai node --test tests/store.test.mjs tests/ui-state.test.mjs \
   | tee "$RESULTS/round2.txt"
 
 echo "Round 3: PWA metadata, local assets, offline shell, recording duration"
-node --test tests/pwa.test.mjs | tee "$RESULTS/round3.txt"
+node --test tests/pwa.test.mjs tests/speech-text.test.mjs \
+  | tee "$RESULTS/round3.txt"
 
 for asset in \
   index.html \
@@ -25,6 +26,7 @@ for asset in \
   extractor.js \
   store.js \
   ui-state.js \
+  speech-text.js \
   sw.js \
   manifest.webmanifest \
   icons/icon-180.png \

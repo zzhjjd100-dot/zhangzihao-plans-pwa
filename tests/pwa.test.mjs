@@ -39,6 +39,7 @@ test("service worker caches the full local app shell", () => {
     "./app.js",
     "./extractor.js",
     "./store.js",
+    "./speech-text.js",
     "./manifest.webmanifest",
     "./icons/icon-192.png"
   ]) {
@@ -50,6 +51,7 @@ test("service worker caches the full local app shell", () => {
 
 test("speech has Web Speech support and keyboard dictation fallback", () => {
   const app = read("app.js");
+  const speechText = read("speech-text.js");
   assert.match(app, /webkitSpeechRecognition/);
   assert.match(app, /appState\.recording/);
   assert.match(app, /elements\.draft\.focus\(\)/);
@@ -60,6 +62,8 @@ test("speech has Web Speech support and keyboard dictation fallback", () => {
   assert.match(app, /10 \* 60 \* 1000/);
   assert.match(app, /startRecognitionAttempt\(false\)/);
   assert.match(app, /appState\.recordingIntent/);
+  assert.match(app, /appendFinalTranscript/);
+  assert.match(speechText, /pauseThresholdMs = 900/);
 });
 
 test("UI fonts stay compact and cards limit home lines", () => {

@@ -121,3 +121,20 @@ test("summarizes a long passage into independent tasks with per-task metadata", 
   assert.match(result.summary, /明天：完成项目周报/);
   assert.match(result.summary, /后天：整理书架/);
 });
+
+test("recovers multiple tasks from a long speech without punctuation", () => {
+  const text = "我今天得把报告写完这个很重要下午三点和产品经理开会确认发布时间后天有空整理书架另外下周一交英语生词和英语范文";
+  const result = extractPlans(text, { referenceDate });
+
+  assert.deepEqual(
+    result.plans.map((plan) => plan.text),
+    ["完成报告", "和产品经理开会确认发布时间", "整理书架", "英语生词", "范文"]
+  );
+  assert.deepEqual(
+    result.plans.map((plan) => plan.importance),
+    ["high", "medium", "low", "medium", "medium"]
+  );
+  assert.equal(new Date(result.plans[1].date).getHours(), 15);
+  assert.equal(new Date(result.plans[2].date).getDate(), 25);
+  assert.ok(result.plans.every((plan) => !plan.text.includes("我今天得")));
+});

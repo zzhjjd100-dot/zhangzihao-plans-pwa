@@ -11,6 +11,7 @@ import {
   toggledDaySet,
   visibleTasksForDay
 } from "./ui-state.js";
+import { appendFinalTranscript } from "./speech-text.js";
 
 const elements = {
   header: document.querySelector("#appHeader"),
@@ -55,6 +56,8 @@ const appState = {
   maxDurationTimer: 0,
   recordingStartedAt: 0,
   lastSpeechAt: 0,
+  lastFinalAt: 0,
+  pauseBeforeNextFinal: false,
   expandedDays: new Set(),
   toastTimer: 0
 };
@@ -686,7 +689,20 @@ function setupSpeechRecognition() {
       if (event.results[index].isFinal) finalText += transcript;
       else interimText += transcript;
     }
-    appState.finalTranscript += finalText;
+    if (finalText) {
+      appState.finalTranscript = appendFinalTranscript(
+        appState.finalTranscript,
+        finalText,
+        {
+          gapMs: appState.lastFinalAt
+            ? Date.now() - appState.lastFinalAt
+            : 0,
+          pauseBefore: appState.pauseBeforeNextFinal
+        }
+      );
+      appState.lastFinalAt = Date.now();
+      appState.pauseBeforeNextFinal = false;
+    }
     elements.draft.value = `${appState.finalTranscript}${interimText}`.trim();
     appState.lastSpeechAt = Date.now();
     scheduleSilenceStop();
@@ -706,6 +722,9 @@ function setupSpeechRecognition() {
   recognition.onend = () => {
     appState.recording = false;
     if (appState.recordingIntent) {
+      appState.pauseBeforeNextFinal = Boolean(
+        appState.finalTranscript.trim() || elements.draft.value.trim()
+      );
       appState.recording = true;
       appState.restartTimer = setTimeout(() => startRecognitionAttempt(false), 380);
       updateComposerState();
@@ -733,6 +752,8 @@ function toggleRecording() {
   appState.recordingIntent = true;
   appState.finalTranscript = "";
   appState.recordingStartedAt = Date.now();
+  appState.lastFinalAt = 0;
+  appState.pauseBeforeNextFinal = false;
   elements.draft.value = "";
   updateComposerState();
   showToast("录音已开始，停顿 75 秒后自动整理");

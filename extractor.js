@@ -93,17 +93,14 @@ export function extractPlans(rawText, options = {}) {
   }
 
   if (plans.length === 0) {
-    const fallback = removeFiller(normalized).text.trim();
-    if (fallback) {
-      plans.push({
-        id: createId(),
-        text: fallback,
-        date: fallbackDate.toISOString(),
-        importance: fallbackImportance,
-        dateWasAutomaticallyInferred: false,
-        importanceWasAutomaticallyInferred: false
-      });
-    }
+    plans.push(
+      ...extractFallbackPlans(
+        normalized,
+        referenceDate,
+        fallbackDate,
+        fallbackImportance
+      )
+    );
   }
 
   const deduped = deduplicatePlans(plans);
@@ -130,6 +127,14 @@ function splitIntoFragments(text) {
     .replace(/(?:首先|其次|然后|接着|之后|最后|另外|还有|还要|同时|对了|顺便说一下)[，,\s]+/g, "\n")
     .replace(/(?:我说完了|大概就是这样|你明白吧)[。！？!?]?$/g, "");
 
+  prepared = prepared
+    .replace(
+      /(?:然后|接着|之后|另外|还有|还要|同时|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g,
+      "\n"
+    );
+
+  prepared = insertLooseTaskBoundaries(prepared);
+
   const strongParts = prepared.split(/[。！？!?；;\n…]+/);
   const fragments = [];
 
@@ -155,6 +160,49 @@ function splitIntoFragments(text) {
   }
 
   return fragments;
+}
+
+function insertLooseTaskBoundaries(text) {
+  const markerPattern =
+    /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|上午|早上|中午|下午|傍晚|晚上|然后|接着|之后|另外|还有|还要|同时|最后)/g;
+  const actionPattern =
+    /(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|学习|复习|背|读|写|做|买|交|确认|继续|处理|跟|和|把)/;
+  const boundaries = [];
+
+  for (const match of text.matchAll(markerPattern)) {
+    const index = match.index;
+    if (index <= 0) continue;
+    const marker = match[0];
+    const before = text.slice(0, index);
+    if (/[。！？!?；;\n，,]$/.test(before)) continue;
+    if (/[的与及和]$/.test(before)) continue;
+    if (/(?:在|于|到|改成|改到|改为|推迟到|提前到|安排在|必须在)$/.test(before.trim())) {
+      continue;
+    }
+    if (/^(?:我|你|他|她|它)(?:觉得|打算|计划|想要|准备)?$/.test(before.trim())) {
+      continue;
+    }
+
+    const isTimeWithinDate = /^(?:上午|早上|中午|下午|傍晚|晚上)$/.test(marker) &&
+      /(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天])$/.test(before.slice(-10));
+    if (isTimeWithinDate) continue;
+
+    const ahead = text.slice(index, index + 34);
+    const isConnector = /^(?:然后|接着|之后|另外|还有|还要|同时|最后)$/.test(marker);
+    if (!isConnector && !actionPattern.test(ahead)) continue;
+    if (boundaries.at(-1) != null && index - boundaries.at(-1) < 3) continue;
+    boundaries.push(index);
+  }
+
+  if (!boundaries.length) return text;
+  let result = "";
+  let cursor = 0;
+  for (const index of boundaries) {
+    result += `${text.slice(cursor, index).trim()}\n`;
+    cursor = index;
+  }
+  result += text.slice(cursor).trim();
+  return result.replace(/\n{2,}/g, "\n");
 }
 
 function shouldStartNewCommaClause(text) {
@@ -240,6 +288,76 @@ function summarizeTaskText(text) {
   return [normalized];
 }
 
+function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImportance) {
+  const cleaned = removeFiller(text).text
+    .replace(/(?:嗯+|啊+|呃+|额+|哦+|你知道吗|我跟你说|说白了|其实吧|然后呢)[，,。！？!?；;\s]*/g, "，")
+    .replace(/(?:然后|接着|之后|另外|还有|还要|同时|最后)(?=(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g, "，")
+    .replace(/(?:今天|明天|后天|大后天|下周[一二三四五六日天])(?=(?:上午|下午|晚上)?(?:我|你)?(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交))/g, "，")
+    .replace(/[，,\s]+/g, "，")
+    .replace(/^[，,。；;\s]+|[，,。；;\s]+$/g, "");
+
+  const clauses = cleaned
+    .split(/[。！？!?；;\n，,]+/)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause && !isPureFiller(clause));
+
+  const fallbackPlans = [];
+  let activeDate = null;
+
+  for (const clause of clauses) {
+    const dateResult = resolveTaskDate(clause, referenceDate, activeDate);
+    activeDate = dateResult.contextDate || activeDate;
+    const importance = detectImportance(clause);
+    const summaries = summarizeTaskText(clause);
+    const condensed = summaries.length
+      ? summaries
+      : [condenseLooseClause(clause)];
+    for (const summary of condensed.filter(Boolean)) {
+      fallbackPlans.push({
+        id: createId(),
+        text: summary,
+        date: (dateResult.date || activeDate || fallbackDate).toISOString(),
+        importance: importance || fallbackImportance,
+        dateWasAutomaticallyInferred: Boolean(dateResult.date || activeDate),
+        importanceWasAutomaticallyInferred: Boolean(importance)
+      });
+    }
+  }
+
+  if (fallbackPlans.length) return deduplicatePlans(fallbackPlans);
+
+  const condensed = condenseLooseClause(cleaned);
+  return condensed
+    ? [{
+        id: createId(),
+        text: condensed,
+        date: fallbackDate.toISOString(),
+        importance: detectImportance(cleaned) || fallbackImportance,
+        dateWasAutomaticallyInferred: false,
+        importanceWasAutomaticallyInferred: Boolean(detectImportance(cleaned))
+      }]
+    : [];
+}
+
+function condenseLooseClause(text) {
+  let result = stripSchedulePrefixes(stripImportanceComment(text))
+    .replace(/^(?:我|你)?(?:觉得|感觉|想着|想说|说一下|说一下就是)/g, "")
+    .replace(/(?:你看|你懂吧|你知道吗|说白了|大概就是这样|反正)/g, "")
+    .replace(/[，,\s]+/g, "，")
+    .replace(/^[，,。；;\s]+|[，,。；;\s]+$/g, "")
+    .trim();
+
+  if (!result) return "";
+  if (result.length <= 42) return result;
+
+  const actionWindow = result.match(
+    /(?:要|需要|得|必须|记得|安排|准备|提交|完成|联系|预约|检查|开会|参加|整理|复习|学习|背|读|写|做|买|交)[^，,。；;]{2,42}/
+  );
+  if (actionWindow) return actionWindow[0].trim();
+
+  return `${result.slice(0, 40).replace(/[，,。；;\s]+$/g, "")}…`;
+}
+
 function summarizeLearningItems(text) {
   const hasVocabulary = /英语\s*(?:生词|单词|词汇)/.test(text);
   const hasEssay = /英语\s*(?:范文|作文)|(?:读|背|看|学习)(?:一篇|一些)?\s*范文/.test(text);
@@ -280,11 +398,11 @@ function stripSchedulePrefixes(text) {
     /^(?:另外|对了|然后|接着|之后|顺便(?:说一下)?)\s*/,
     /^(?:先|首先|再|其次|最后)\s*/,
     /^(?:有空(?:的时候)?|看情况|尽量)\s*/,
-    /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想)\s*/,
-    /^(?:今天|明天|后天|大后天|明晚|今晚|昨天)(?:的)?\s*/,
-    /^(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
-    /^(?:下个月|本月|这个月)\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
-    /^(?:\d{1,2}|[一二三四五六七八九十两]{1,3})月(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
+    /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想|你要|你需要|你得|他要|他得|她要|她得|得)\s*/,
+    /^(?:我|你|他|她|它)?(?:今天|明天|后天|大后天|明晚|今晚|昨天)(?:的)?\s*/,
+    /^(?:我|你|他|她|它)?(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
+    /^(?:我|你|他|她|它)?(?:下个月|本月|这个月)\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
+    /^(?:我|你|他|她|它)?(?:\d{1,2}|[一二三四五六七八九十两]{1,3})月(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:日|号)\s*/,
     /^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时|:|：)(?:\d{1,2}|[一二三四五六七八九十两]{1,3})?(?:分)?\s*/,
     /^(?:我)?要(?=去|把|交|提|写|做|买|联|预|检|处|参|开|整|复|背|读|学|准|完|发|跟|和)\s*/
   ];

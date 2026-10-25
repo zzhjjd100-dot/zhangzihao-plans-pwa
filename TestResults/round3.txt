@@ -1,26 +1,30 @@
-✔ manifest declares an installable dark standalone PWA (0.484042ms)
-✔ HTML includes iOS standalone metadata and required controls (0.456334ms)
-✔ service worker caches the full local app shell (0.096417ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.16425ms)
-✔ UI fonts stay compact and cards limit home lines (0.188709ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.217875ms)
-✔ local date and task persistence code is included (0.151ms)
-✔ review screen receives and displays the generated overview (0.104208ms)
-✔ home day cards can collapse to high-priority items only (0.1285ms)
-ℹ tests 9
+✔ manifest declares an installable dark standalone PWA (0.655667ms)
+✔ HTML includes iOS standalone metadata and required controls (1.05725ms)
+✔ service worker caches the full local app shell (0.369584ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.475625ms)
+✔ UI fonts stay compact and cards limit home lines (0.568208ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.570084ms)
+✔ local date and task persistence code is included (0.449125ms)
+✔ review screen receives and displays the generated overview (0.292208ms)
+✔ home day cards can collapse to high-priority items only (0.334333ms)
+✔ adds a comma after a long pause (0.504333ms)
+✔ adds a comma before a restarted recognition segment (0.112375ms)
+✔ does not duplicate existing punctuation (0.065834ms)
+ℹ tests 12
 ℹ suites 0
-ℹ pass 9
+ℹ pass 12
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 40.429125
+ℹ duration_ms 56.642916
 present index.html
 present styles.css
 present app.js
 present extractor.js
 present store.js
 present ui-state.js
+present speech-text.js
 present sw.js
 present manifest.webmanifest
 present icons/icon-180.png
