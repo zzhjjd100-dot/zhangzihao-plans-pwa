@@ -360,6 +360,14 @@ function rewriteDialogueQuestion(text) {
 function sanitizePlanTitle(text) {
   return String(text || "")
     .replace(/(?:一点|一下)/gu, "")
+    .replace(
+      /^(?:那个|这个|就是|然后|其实|可能|应该|怎么说呢)[，,。；;\s]*/gu,
+      ""
+    )
+    .replace(
+      /(?:那个|这个|就是|然后|其实|可能|应该|怎么说呢)[，,。；;\s]*$/gu,
+      ""
+    )
     .replace(/[，,。；;、：:…]+/gu, "")
     .replace(/\s+/gu, "")
     .replace(/和$/u, "")
@@ -804,8 +812,9 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
     const condensed = summaries.length
       ? summaries
       : [condenseLooseClause(clause)];
-    for (const summary of condensed.filter(Boolean)) {
-      if (!isFeasiblePlanText(summary)) continue;
+    for (const rawSummary of condensed.filter(Boolean)) {
+      const summary = sanitizePlanTitle(rawSummary);
+      if (!summary || !isFeasiblePlanText(summary)) continue;
       fallbackPlans.push({
         id: createId(),
         text: summary,
@@ -821,7 +830,7 @@ function extractFallbackPlans(text, referenceDate, fallbackDate, fallbackImporta
 
   if (isPastStatement(cleaned)) return [];
   if (isNonActionableNarration(cleaned)) return [];
-  const condensed = condenseLooseClause(cleaned);
+  const condensed = sanitizePlanTitle(condenseLooseClause(cleaned));
   return condensed && isFeasiblePlanText(condensed)
     ? [{
         id: createId(),
@@ -906,7 +915,7 @@ function isNonActionableNarration(text) {
   if (!compact) return true;
 
   const explicitFuture =
-    /(?:下一步|接下来|后续|从今以后|明天|后天|下周|下个月|到时候|计划|打算|准备要|将要|想要|想去|想出去|我要|我们需要|(?:我|我们|我现在|我们现在)(?:需要|要|得)|(?:目前|现在|当前)(?:要|需要|得|必须|先|准备|打算|计划|开始)|提醒我|记得|必须|(?:我|我们)就(?:去|往|开始|做))/u.test(compact);
+    /(?:下一步|接下来|后续|从今以后|明天|后天|下周|下个月|到时候|计划|打算|准备要|将要|想要|想去|想出去|我要|我们需要|(?:我|我们|我现在|我们现在)(?:需要|要|得)|(?:目前|现在|当前)(?:要|需要|得|必须|先|准备|打算|计划|开始)|提醒我|记得|必须|在那之前|之前要|之前完成|截止到|截至|(?:我|我们)就(?:去|往|开始|做))/u.test(compact);
   if (explicitFuture) return false;
 
   if (/^(?:目前|现在|当前|如今)/u.test(compact)) return true;
@@ -1023,6 +1032,7 @@ function stripSchedulePrefixes(text) {
     /^(?:先|首先|再|其次|最后)\s*/,
     /^(?:有空(?:的时候)?|看情况|尽量)\s*/,
     /^(?:提醒我|帮我|请|麻烦你?|记得|别忘了|我要|我需要|我得|我想|你要|你需要|你得|他要|他得|她要|她得|得)\s*/,
+    /^(?:我|你)(?=[\p{Script=Han}])/u,
     /^(?:我|你|他|她|它)?(?:觉得|感觉|认为|发现|希望)\s*/,
     /^(?:我|你|他|她|它)?(?:今天|明天|后天|大后天|明晚|今晚|昨天)(?:的)?\s*/,
     /^(?:我|你|他|她|它)?(?:下周|下星期|本周|这周|周|星期)[一二三四五六日天](?:的)?\s*/,
