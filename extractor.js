@@ -93,6 +93,10 @@ export function importanceLabel(value) {
   return value === "high" ? "高重要" : value === "low" ? "低重要" : "中重要";
 }
 
+export function parsePlanningDate(text, referenceDate = new Date()) {
+  return detectDate(String(text || ""), new Date(referenceDate)).date;
+}
+
 export function extractPlans(rawText, options = {}) {
   const referenceDate = options.referenceDate
     ? new Date(options.referenceDate)
@@ -1011,6 +1015,8 @@ function stripSchedulePrefixes(text) {
   const prefixes = [
     /^(?:而且|并且|另外|对了|然后|接着|之后|还有|还要|同时|等会(?:儿)?|等一会(?:儿)?|稍后|顺便(?:说一下)?)\s*/,
     /^(?:就是|其实就是|主要是|今天就是)\s*/,
+    /^(?:在?那(?:一天)?之前|在这?之前|在此之前|之前)(?:要|需要|得|必须)?\s*/,
+    /^(?:截止到|截至)(?:今天|明天|后天|\d{1,2}月\d{1,2}(?:日|号))?\s*/,
     /^(?:下一步|接下来|后续|从现在开始)[，,\s]*(?:我们|我)?(?:将|会|要|需要|计划|准备|打算)?\s*/,
     /^(?:我们|我)(?:将|会|计划|准备|打算)\s*/,
     /^(?:目前|现在|当前)(?:先|准备|打算|计划|开始)?\s*/,

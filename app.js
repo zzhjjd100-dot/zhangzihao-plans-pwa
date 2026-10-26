@@ -1,7 +1,13 @@
+import { importanceLabel } from "./extractor.js";
+import { extractPlannerInput } from "./intent.js";
 import {
-  extractPlans,
-  importanceLabel
-} from "./extractor.js";
+  formatPeriodRange,
+  normalizeScope,
+  normalizeScopeBasis,
+  periodRange,
+  scopeBasisLabel,
+  scopeLabel
+} from "./periods.js";
 import {
   PlanStore,
   dateFromDayKey,
@@ -17,7 +23,7 @@ import {
   refineSpeechTranscript
 } from "./speech-text.js";
 
-const APP_VERSION = "1.12.1";
+const APP_VERSION = "1.13.0";
 
 const elements = {
   header: document.querySelector("#appHeader"),
@@ -32,6 +38,7 @@ const elements = {
   reviewModal: document.querySelector("#reviewModal"),
   reviewTitle: document.querySelector("#reviewTitle"),
   reviewSummary: document.querySelector("#reviewSummary"),
+  eventReviewList: document.querySelector("#eventReviewList"),
   reviewList: document.querySelector("#reviewList"),
   keywordWrap: document.querySelector("#keywordWrap"),
   originalTranscript: document.querySelector("#originalTranscript"),
@@ -65,6 +72,10 @@ const appState = {
   lastFinalAt: 0,
   pauseBeforeNextFinal: false,
   expandedDays: new Set(),
+  homePanels: {
+    dates: false,
+    big: false
+  },
   toastTimer: 0
 };
 
@@ -114,6 +125,13 @@ function handleClick(event) {
     if (action === "install") openInstallHelp();
     if (action === "toggle-complete") handleToggleComplete(actionElement.dataset.id);
     if (action === "delete") handleDelete(actionElement.dataset.id);
+    if (action === "quick-complete-delete") {
+      store.complete(actionElement.dataset.id, false);
+      showToast("已完成并删除");
+    }
+    if (action === "toggle-home-panel") {
+      toggleHomePanel(actionElement.dataset.panel);
+    }
     return;
   }
 
@@ -137,6 +155,22 @@ function handleClick(event) {
   if (reviewRemove) {
     const index = Number(reviewRemove.dataset.removeReview);
     appState.review.plans.splice(index, 1);
+    renderReview();
+    return;
+  }
+
+  const eventRemove = event.target.closest("[data-remove-event]");
+  if (eventRemove) {
+    const index = Number(eventRemove.dataset.removeEvent);
+    appState.review.events.splice(index, 1);
+    for (const plan of appState.review.plans) {
+      if (!Number.isInteger(plan.deadlineEventIndex)) continue;
+      if (plan.deadlineEventIndex === index) {
+        plan.deadlineEventIndex = null;
+      } else if (plan.deadlineEventIndex > index) {
+        plan.deadlineEventIndex -= 1;
+      }
+    }
     renderReview();
     return;
   }
@@ -222,6 +256,7 @@ function renderContent() {
 
 function renderHome() {
   const groups = store.groupedByDayNewestFirst();
+  const statuses = homeStatusHTML();
   const summary = summaryBarHTML([
     ["待完成", store.pendingCount(), ""],
     ["高重要", store.highPendingCount(), "high"],
@@ -230,6 +265,7 @@ function renderHome() {
 
   if (groups.length === 0) {
     elements.content.innerHTML = `
+      ${statuses}
       ${summary}
       <div class="empty-state">
         ${icon("mic")}
@@ -241,11 +277,152 @@ function renderHome() {
   }
 
   elements.content.innerHTML = `
+    ${statuses}
     ${summary}
     <div class="day-list">
       ${groups.map(dayCardHTML).join("")}
     </div>
   `;
+}
+
+function homeStatusHTML() {
+  const events = store.upcomingEvents();
+  const bigPlans = store.bigPlans();
+  const nextEvent = events[0];
+  const eventSummary = nextEvent
+    ? `${formatMonthDay(nextEvent.date)} · ${nextEvent.title}`
+    : "暂无重要日期";
+  const bigSummary = bigPlans.length
+    ? `${bigPlans.length} 项进行中`
+    : "暂无大计划";
+
+  return `
+    <section class="home-status-row" aria-label="计划概览">
+      <aside
+        class="home-status-card${appState.homePanels.dates ? " is-expanded" : ""}"
+        data-home-status="dates"
+      >
+        <button
+          class="status-trigger"
+          type="button"
+          data-action="toggle-home-panel"
+          data-panel="dates"
+          aria-expanded="${appState.homePanels.dates}"
+        >
+          <span class="status-icon">${icon("flag")}</span>
+          <span class="status-copy">
+            <strong>重要日期${events.length > 1 ? ` · ${events.length}` : ""}</strong>
+            <small>${escapeHTML(eventSummary)}</small>
+          </span>
+          <span class="status-chevron">${icon("chevron-down")}</span>
+        </button>
+        <div class="status-panel">
+          <div class="status-panel-inner">
+            ${events.length
+              ? events.map(importantEventStatusHTML).join("")
+              : `<p class="status-empty">说出日期和重要事件后，会在这里汇总截止计划。</p>`}
+          </div>
+        </div>
+      </aside>
+
+      <aside
+        class="home-status-card big-status-card${appState.homePanels.big ? " is-expanded" : ""}"
+        data-home-status="big"
+      >
+        <button
+          class="status-trigger"
+          type="button"
+          data-action="toggle-home-panel"
+          data-panel="big"
+          aria-expanded="${appState.homePanels.big}"
+        >
+          <span class="status-icon">${icon("calendar")}</span>
+          <span class="status-copy">
+            <strong>大计划</strong>
+            <small>${escapeHTML(bigSummary)}</small>
+          </span>
+          <span class="status-chevron">${icon("chevron-down")}</span>
+        </button>
+        <div class="status-panel">
+          <div class="status-panel-inner">
+            ${["week", "month", "year"].map((scope) =>
+              bigPlanGroupHTML(scope)
+            ).join("")}
+          </div>
+        </div>
+      </aside>
+    </section>
+  `;
+}
+
+function importantEventStatusHTML(event) {
+  const duePlans = store.plansDueByEvent(event);
+  return `
+    <article class="event-status-item">
+      <div class="event-status-head">
+        <span>
+          <strong>${escapeHTML(formatMonthDay(event.date))}</strong>
+          <small>${escapeHTML(relativeDayLabel(event.date))}</small>
+        </span>
+        <b>${escapeHTML(event.title)}</b>
+      </div>
+      <div class="event-plan-list">
+        ${duePlans.length
+          ? duePlans.slice(0, 8).map((plan) => `
+              <div class="event-plan-item" data-importance="${plan.importance}">
+                <span>${escapeHTML(plan.text)}</span>
+                <small>${escapeHTML(formatMonthDay(plan.date))}</small>
+              </div>
+            `).join("")
+          : `<p class="status-empty">暂无截止到该日期的计划</p>`}
+      </div>
+    </article>
+  `;
+}
+
+function bigPlanGroupHTML(scope) {
+  const items = store.bigPlansByScope(scope);
+  return `
+    <section class="big-plan-group">
+      <header>
+        <strong>${scopeLabel(scope)}</strong>
+        <span>${items.length} 项</span>
+      </header>
+      ${items.length
+        ? items.map((plan) => `
+            <article class="big-plan-item" data-importance="${plan.importance}">
+              <div class="big-plan-head">
+                <button
+                  class="task-check quick-complete"
+                  type="button"
+                  data-action="quick-complete-delete"
+                  data-id="${plan.id}"
+                  aria-label="完成并删除${scopeLabel(scope)}"
+                  title="完成并删除"
+                >${icon("circle")}</button>
+                <span>${escapeHTML(plan.text)}</span>
+              </div>
+              <small>
+                ${escapeHTML(scopeBasisLabel(plan.scopeBasis, plan.scope))}
+                · ${escapeHTML(formatPeriodRange({
+                  start: plan.scopeStart,
+                  end: plan.scopeEnd
+                }))}
+              </small>
+            </article>
+          `).join("")
+        : `<p class="status-empty">暂无${scopeLabel(scope)}</p>`}
+    </section>
+  `;
+}
+
+function toggleHomePanel(panel) {
+  if (!["dates", "big"].includes(panel)) return;
+  appState.homePanels[panel] = !appState.homePanels[panel];
+  const card = document.querySelector(`[data-home-status="${panel}"]`);
+  const trigger = card?.querySelector(".status-trigger");
+  card?.classList.toggle("is-expanded", appState.homePanels[panel]);
+  trigger?.setAttribute("aria-expanded", String(appState.homePanels[panel]));
 }
 
 function renderDayDetail() {
@@ -291,7 +468,7 @@ function dayCardHTML(group) {
   const expanded = appState.expandedDays.has(group.key);
   const visibleItems = visibleTasksForDay(group.items, expanded);
   const taskContent = visibleItems.length
-    ? `<div class="task-list">${visibleItems.map((item) => taskRowHTML(item, false)).join("")}</div>`
+    ? `<div class="task-list">${visibleItems.map((item) => taskRowHTML(item, false, expanded)).join("")}</div>`
     : `<div class="no-high-row">${expanded ? "当天没有任务" : "暂无高重要任务"}</div>`;
 
   return `
@@ -330,7 +507,7 @@ function toggleDayExpanded(key) {
   renderContent();
 }
 
-function taskRowHTML(item, detailed) {
+function taskRowHTML(item, detailed, quickComplete = false) {
   const completedClass = item.isCompleted ? " is-completed" : "";
   const detailClass = detailed ? " is-detailed" : "";
   const completionControl = detailed
@@ -341,6 +518,15 @@ function taskRowHTML(item, detailed) {
          data-id="${item.id}"
          aria-label="${item.isCompleted ? "恢复任务" : "完成任务"}"
        >${icon(item.isCompleted ? "check-circle" : "circle")}</button>`
+    : quickComplete && !item.isCompleted
+      ? `<button
+           class="task-check quick-complete"
+           type="button"
+           data-action="quick-complete-delete"
+           data-id="${item.id}"
+           aria-label="完成并删除计划"
+           title="完成并删除"
+         >${icon("circle")}</button>`
     : `<span class="task-check" aria-hidden="true">${icon(item.isCompleted ? "check-circle" : "circle")}</span>`;
 
   const time = formatTime(item.date);
@@ -401,13 +587,13 @@ function submitDraft() {
 }
 
 function prepareReview(text) {
-  const result = extractPlans(text, {
+  const result = extractPlannerInput(text, {
     referenceDate: new Date(),
     defaultDate: dateAtNoon(elements.date.value || dayKey(new Date())),
     defaultImportance: elements.importance.value
   });
 
-  if (!result.plans.length) {
+  if (!result.plans.length && !result.events.length) {
     clearDraftInput();
     openNoPlanNotice();
     return;
@@ -418,9 +604,18 @@ function prepareReview(text) {
     summary: result.summary,
     keywords: result.keywords,
     removedFillerCount: result.removedFillerCount,
+    events: result.events.map((event) => ({
+      title: event.title,
+      date: event.date.toISOString(),
+      dateInput: toDateInput(event.date)
+    })),
     plans: result.plans.map((plan) => ({
       ...plan,
-      dateInput: toLocalDateTimeInput(plan.date)
+      scope: normalizeScope(plan.scope),
+      scopeBasis: normalizeScopeBasis(plan.scopeBasis, plan.scope),
+      dateInput: toLocalDateTimeInput(
+        normalizeScope(plan.scope) === "day" ? plan.date : plan.scopeStart
+      )
     }))
   };
   renderReview();
@@ -449,12 +644,19 @@ function renderReview() {
   const review = appState.review;
   if (!review) return;
 
-  elements.reviewTitle.textContent = `确认整理结果 · ${review.plans.length} 项`;
+  elements.reviewTitle.textContent =
+    `确认整理结果 · ${review.plans.length} 项计划` +
+    (review.events.length ? ` · ${review.events.length} 个重要日期` : "");
   elements.reviewSummary.textContent =
     review.summary ||
     (review.removedFillerCount > 0
       ? `已清理语气词，可继续调整`
-      : `日期与重要性可继续调整`);
+      : `计划范围、日期与重要性可继续调整`);
+
+  elements.eventReviewList.hidden = review.events.length === 0;
+  elements.eventReviewList.innerHTML = review.events
+    .map((event, index) => eventReviewItemHTML(event, index))
+    .join("");
 
   elements.reviewList.innerHTML = review.plans.length
     ? review.plans.map((plan, index) => reviewItemHTML(plan, index)).join("")
@@ -465,7 +667,37 @@ function renderReview() {
     .map((keyword) => `<span class="keyword">${escapeHTML(keyword)}</span>`)
     .join("");
   elements.originalTranscript.textContent = review.originalText;
-  elements.confirmReview.disabled = review.plans.length === 0;
+  elements.confirmReview.disabled =
+    review.plans.length === 0 && review.events.length === 0;
+}
+
+function eventReviewItemHTML(event, index) {
+  return `
+    <article class="event-review-item">
+      <div class="event-review-head">
+        <span class="review-section-label">${icon("flag")}重要日期</span>
+        <button class="review-remove" type="button" data-remove-event="${index}" aria-label="移除重要日期">
+          ${icon("x")}
+        </button>
+      </div>
+      <input
+        class="event-title-input"
+        type="text"
+        value="${escapeHTML(event.title)}"
+        data-event-title="${index}"
+        aria-label="重要事件"
+      >
+      <label class="review-control">
+        ${icon("calendar")}
+        <input
+          type="date"
+          value="${event.dateInput}"
+          data-event-date="${index}"
+          aria-label="重要日期"
+        >
+      </label>
+    </article>
+  `;
 }
 
 function reviewItemHTML(plan, index) {
@@ -475,8 +707,10 @@ function reviewItemHTML(plan, index) {
   const importanceAuto = plan.importanceWasAutomaticallyInferred
     ? `<span class="auto-badge">重要性已推断</span>`
     : "";
+  const scope = normalizeScope(plan.scope);
+  const scopeBasis = normalizeScopeBasis(plan.scopeBasis, scope);
   return `
-    <article class="review-item" data-review-index="${index}" data-importance="${plan.importance}">
+    <article class="review-item" data-review-index="${index}" data-importance="${plan.importance}" data-scope="${scope}">
       <div class="review-item-head">
         <textarea class="review-text" data-review-text="${index}">${escapeHTML(plan.text)}</textarea>
         <button class="review-remove" type="button" data-remove-review="${index}" aria-label="移除这一项">
@@ -494,6 +728,24 @@ function reviewItemHTML(plan, index) {
             <option value="high" ${plan.importance === "high" ? "selected" : ""}>高重要</option>
             <option value="medium" ${plan.importance === "medium" ? "selected" : ""}>中重要</option>
             <option value="low" ${plan.importance === "low" ? "selected" : ""}>低重要</option>
+          </select>
+        </label>
+      </div>
+      <div class="review-scope-row">
+        <label class="review-control">
+          ${icon("calendar")}
+          <select data-review-scope="${index}" aria-label="计划范围">
+            <option value="day" ${scope === "day" ? "selected" : ""}>日计划</option>
+            <option value="week" ${scope === "week" ? "selected" : ""}>周计划</option>
+            <option value="month" ${scope === "month" ? "selected" : ""}>月计划</option>
+            <option value="year" ${scope === "year" ? "selected" : ""}>年计划</option>
+          </select>
+        </label>
+        <label class="review-control">
+          ${icon("clock")}
+          <select data-review-basis="${index}" aria-label="计划计算方式" ${scope === "day" ? "disabled" : ""}>
+            <option value="calendar" ${scopeBasis === "calendar" ? "selected" : ""}>按日历</option>
+            <option value="rolling" ${scopeBasis === "rolling" ? "selected" : ""}>从今天起</option>
           </select>
         </label>
       </div>
@@ -520,25 +772,85 @@ function syncReviewField(event) {
     const item = target.closest(".review-item");
     if (item) item.dataset.importance = target.value;
   }
+  if (target.matches("[data-review-scope]")) {
+    const index = Number(target.dataset.reviewScope);
+    const plan = appState.review.plans[index];
+    plan.scope = normalizeScope(target.value);
+    plan.scopeBasis = normalizeScopeBasis(plan.scopeBasis, plan.scope);
+    const item = target.closest(".review-item");
+    const basis = item?.querySelector("[data-review-basis]");
+    if (item) item.dataset.scope = plan.scope;
+    if (basis) {
+      basis.disabled = plan.scope === "day";
+      if (plan.scope === "day") basis.value = "calendar";
+    }
+  }
+  if (target.matches("[data-review-basis]")) {
+    const index = Number(target.dataset.reviewBasis);
+    appState.review.plans[index].scopeBasis = normalizeScopeBasis(
+      target.value,
+      appState.review.plans[index].scope
+    );
+  }
+  if (target.matches("[data-event-title]")) {
+    const index = Number(target.dataset.eventTitle);
+    appState.review.events[index].title = target.value;
+  }
+  if (target.matches("[data-event-date]")) {
+    const index = Number(target.dataset.eventDate);
+    appState.review.events[index].dateInput = target.value;
+  }
 }
 
 function confirmReview() {
   if (!appState.review) return;
   syncAllReviewFields();
+  const eventIds = [];
+  for (const event of appState.review.events) {
+    if (!event.title.trim() || !event.dateInput) {
+      eventIds.push(null);
+      continue;
+    }
+    const created = store.addEvent({
+      title: event.title.trim(),
+      date: new Date(`${event.dateInput}T12:00:00`).toISOString()
+    });
+    eventIds.push(created.id);
+  }
+  const events = eventIds.filter(Boolean);
+
   const plans = appState.review.plans
     .filter((plan) => plan.text.trim())
-    .map((plan) => ({
-      ...plan,
-      date: new Date(plan.dateInput || plan.date).toISOString()
-    }));
-  if (!plans.length) {
-    showToast("没有可加入的计划");
+    .map((plan) => {
+      const scope = normalizeScope(plan.scope);
+      const scopeBasis = normalizeScopeBasis(plan.scopeBasis, scope);
+      const anchor = new Date(plan.dateInput || plan.date);
+      const range = periodRange(scope, scopeBasis, anchor);
+      return {
+        ...plan,
+        scope,
+        scopeBasis,
+        scopeStart: range.start.toISOString(),
+        scopeEnd: range.end.toISOString(),
+        date: (scope === "day" ? anchor : range.end).toISOString(),
+        deadlineEventId:
+          Number.isInteger(plan.deadlineEventIndex)
+            ? eventIds[plan.deadlineEventIndex] || null
+            : null
+      };
+    });
+  if (!plans.length && !events.length) {
+    showToast("没有可加入的计划或重要日期");
     return;
   }
   store.addPlans(plans, appState.review.originalText);
   const count = plans.length;
   closeReview();
-  finishComposer(`已加入 ${count} 项`);
+  finishComposer(
+    events.length
+      ? `已加入 ${count} 项计划和 ${events.length} 个重要日期`
+      : `已加入 ${count} 项`
+  );
 }
 
 function syncAllReviewFields() {
@@ -547,9 +859,19 @@ function syncAllReviewFields() {
     const text = elements.reviewList.querySelector(`[data-review-text="${index}"]`);
     const date = elements.reviewList.querySelector(`[data-review-date="${index}"]`);
     const importance = elements.reviewList.querySelector(`[data-review-importance="${index}"]`);
+    const scope = elements.reviewList.querySelector(`[data-review-scope="${index}"]`);
+    const basis = elements.reviewList.querySelector(`[data-review-basis="${index}"]`);
     if (text) plan.text = text.value;
     if (date) plan.dateInput = date.value;
     if (importance) plan.importance = importance.value;
+    if (scope) plan.scope = normalizeScope(scope.value);
+    if (basis) plan.scopeBasis = normalizeScopeBasis(basis.value, plan.scope);
+  }
+  for (const [index, event] of appState.review.events.entries()) {
+    const title = elements.eventReviewList.querySelector(`[data-event-title="${index}"]`);
+    const date = elements.eventReviewList.querySelector(`[data-event-date="${index}"]`);
+    if (title) event.title = title.value;
+    if (date) event.dateInput = date.value;
   }
 }
 
@@ -934,6 +1256,14 @@ function toLocalDateTimeInput(value) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toDateInput(value) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatMonthDay(value) {

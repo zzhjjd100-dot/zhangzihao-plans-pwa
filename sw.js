@@ -1,10 +1,12 @@
-const CACHE_NAME = "zhangzihao-plans-v1.12.1";
+const CACHE_NAME = "zhangzihao-plans-v1.13.0";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./extractor.js",
+  "./intent.js",
+  "./periods.js",
   "./store.js",
   "./ui-state.js",
   "./speech-text.js",

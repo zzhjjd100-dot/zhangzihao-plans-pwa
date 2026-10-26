@@ -38,6 +38,8 @@ test("service worker caches the full local app shell", () => {
     "./styles.css",
     "./app.js",
     "./extractor.js",
+    "./intent.js",
+    "./periods.js",
     "./store.js",
     "./speech-text.js",
     "./manifest.webmanifest",
@@ -138,4 +140,21 @@ test("homepage title shows the current app version in small text", () => {
   assert.match(css, /\.header-version\s*\{/);
   assert.match(css, /font-size:\s*10px/);
   assert.match(css, /white-space:\s*nowrap/);
+});
+
+test("wires big plans, important dates, scope controls, and quick completion", () => {
+  const app = read("app.js");
+  const html = read("index.html");
+  const sw = read("sw.js");
+
+  assert.match(app, /extractPlannerInput/);
+  assert.match(app, /home-status-row/);
+  assert.match(app, /data-action="toggle-home-panel"/);
+  assert.match(app, /data-action="quick-complete-delete"/);
+  assert.match(app, /data-review-scope/);
+  assert.match(app, /data-review-basis/);
+  assert.match(app, /deadlineEventIndex/);
+  assert.match(html, /id="eventReviewList"/);
+  assert.match(sw, /\.\/intent\.js/);
+  assert.match(sw, /\.\/periods\.js/);
 });
