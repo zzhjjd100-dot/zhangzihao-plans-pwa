@@ -44,62 +44,152 @@ export function extractPlannerInput(rawText, options = {}) {
   const referenceDate = options.referenceDate
     ? new Date(options.referenceDate)
     : new Date();
-  const analysis = detectScopeDirective(String(rawText || ""));
-  analysis.text = cleanGrammarGlitches(analysis.text);
-  analysis.text = cleanSpokenFillers(analysis.text);
-  const events = detectImportantEvents(analysis.text, referenceDate);
-  const deadlineMarker = analysis.text.search(
-    /(?:在那之前|在这之前|之前要|前要|前完成|截止到|截至)/u
+  const cleaned = cleanSpokenFillers(
+    cleanGrammarGlitches(String(rawText || ""))
   );
-  const deadlineEventIndex = deadlineMarker === -1 || !events.length
-    ? null
-    : Math.max(
-        0,
-        events.findLastIndex((event) => event.position < deadlineMarker)
-      );
-  const result = extractPlans(analysis.text, {
-    ...options,
-    referenceDate
-  });
-  const range = analysis.scope
-    ? periodRange(analysis.scope, analysis.basis, referenceDate)
-    : null;
-  const plans = result.plans.map((plan) => {
-    const scopedPlan = analysis.scope
-      ? {
-          ...plan,
-          scope: analysis.scope,
-          scopeBasis: analysis.basis,
-          scopeStart: range.start.toISOString(),
-          scopeEnd: range.end.toISOString(),
-          date: range.end.toISOString()
-        }
-      : {
-          ...plan,
-          scope: "day",
-          scopeBasis: "calendar",
-          scopeStart: plan.date,
-          scopeEnd: plan.date
+  const events = detectImportantEvents(cleaned, referenceDate);
+  const segments = findScopeSegments(cleaned);
+  const segmentResults = segments.map((segment) =>
+    extractPlans(segment.text, {
+      ...options,
+      referenceDate
+    })
+  );
+  const plans = segments.flatMap((segment, segmentIndex) => {
+    const result = segmentResults[segmentIndex];
+    const range = segment.scope
+      ? periodRange(segment.scope, segment.basis, referenceDate)
+      : null;
+    const deadlineMarker = segment.text.search(
+      /(?:在那之前|在这之前|之前要|前要|前完成|截止到|截至)/u
+    );
+    const deadlineEventIndex = deadlineMarker === -1 || !events.length
+      ? null
+      : Math.max(
+          0,
+          events.findLastIndex(
+            (event) => event.position < segment.start + deadlineMarker
+          )
+        );
+    return result.plans.map((plan) => {
+      const scopedPlan = segment.scope
+        ? {
+            ...plan,
+            scope: segment.scope,
+            scopeBasis: segment.basis,
+            scopeStart: range.start.toISOString(),
+            scopeEnd: range.end.toISOString(),
+            date: range.end.toISOString()
+          }
+        : {
+            ...plan,
+            scope: "day",
+            scopeBasis: "calendar",
+            scopeStart: plan.date,
+            scopeEnd: plan.date
+          };
+      if (deadlineEventIndex != null) {
+        return {
+          ...scopedPlan,
+          date: events[deadlineEventIndex].date.toISOString(),
+          deadlineEventIndex
         };
-    if (deadlineEventIndex != null) {
-      const eventDate = events[deadlineEventIndex].date;
-      return {
-        ...scopedPlan,
-        date: eventDate.toISOString(),
-        deadlineEventIndex
-      };
-    }
-    return scopedPlan;
+      }
+      return scopedPlan;
+    });
   });
+  const base = segmentResults[0] || {
+    keywords: [],
+    removedFillerCount: 0,
+    summary: ""
+  };
+  const scopedDirective =
+    segments.find((segment) => segment.scope) || null;
+  const keywords = [
+    ...new Set(segmentResults.flatMap((result) => result.keywords || []))
+  ].slice(0, 8);
+  const summary = segmentResults
+    .filter((result) => result.summary)
+    .map((result) => result.summary)
+    .join("；");
 
   return {
-    ...result,
+    ...base,
     plans,
     events,
-    scopeDirective: analysis.scope
-      ? { scope: analysis.scope, basis: analysis.basis }
+    keywords,
+    removedFillerCount: segmentResults.reduce(
+      (total, result) => total + (result.removedFillerCount || 0),
+      0
+    ),
+    cleanedText: [...new Set(plans.map((plan) => plan.text))].join("；"),
+    summary,
+    scopeDirective: scopedDirective?.scope
+      ? { scope: scopedDirective.scope, basis: scopedDirective.basis }
       : null
   };
+}
+
+function findScopeSegments(text) {
+  const matches = [];
+  for (const directive of SCOPE_DIRECTIVES) {
+    const expression = new RegExp(
+      directive.pattern.source,
+      directive.pattern.flags.includes("g")
+        ? directive.pattern.flags
+        : `${directive.pattern.flags}g`
+    );
+    for (const match of text.matchAll(expression)) {
+      matches.push({
+        index: match.index,
+        length: match[0].length,
+        scope: directive.scope,
+        basis: directive.basis
+      });
+    }
+  }
+  matches.sort((left, right) => left.index - right.index || left.length - right.length);
+  if (!matches.length) {
+    return [{ start: 0, scope: null, basis: null, text }];
+  }
+
+  const segments = [];
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.index < cursor) continue;
+    if (match.index > cursor) {
+      segments.push({
+        start: cursor,
+        scope: null,
+        basis: null,
+        text: text.slice(cursor, match.index)
+      });
+    }
+    const segmentStart = match.index + match.length;
+    let segmentEnd = text.length;
+    for (const next of matches) {
+      if (next.index >= segmentStart) {
+        segmentEnd = next.index;
+        break;
+      }
+    }
+    segments.push({
+      start: segmentStart,
+      scope: match.scope,
+      basis: match.basis,
+      text: text.slice(segmentStart, segmentEnd)
+    });
+    cursor = segmentEnd;
+  }
+  if (cursor < text.length) {
+    segments.push({
+      start: cursor,
+      scope: null,
+      basis: null,
+      text: text.slice(cursor)
+    });
+  }
+  return segments.length ? segments : [{ start: 0, scope: null, basis: null, text }];
 }
 
 export function cleanGrammarGlitches(text) {
@@ -155,6 +245,13 @@ export function detectImportantEvents(text, referenceDate = new Date()) {
   const events = [];
   for (const match of text.matchAll(EVENT_DATE_PATTERN)) {
     const dateText = match[0];
+    const immediateEnd = findImmediateClauseEnd(
+      text,
+      match.index + dateText.length
+    );
+    const immediateClause = text.slice(match.index, immediateEnd);
+    if (!EVENT_CUE_PATTERN.test(immediateClause)) continue;
+
     const clauseEnd = findClauseEnd(text, match.index + dateText.length);
     const clause = text.slice(match.index, clauseEnd).trim();
     if (!EVENT_CUE_PATTERN.test(clause)) continue;
@@ -164,7 +261,7 @@ export function detectImportantEvents(text, referenceDate = new Date()) {
     const title = normalizeEventTitle(
       clause
         .replace(dateText, "")
-        .split(/(?:之前要|前要|之前完成|前完成|截止到|截至)/u)[0]
+        .split(/(?:在那之前|在这之前|之前要|前要|之前完成|前完成|截止到|截至)/u)[0]
     );
     if (!title) continue;
     if (
@@ -179,6 +276,11 @@ export function detectImportantEvents(text, referenceDate = new Date()) {
     events.push({ title, date, position: match.index });
   }
   return events;
+}
+
+function findImmediateClauseEnd(text, start) {
+  const next = text.slice(start).search(/[，,。；;\n]/u);
+  return next === -1 ? text.length : start + next + 1;
 }
 
 function normalizeEventTitle(text) {

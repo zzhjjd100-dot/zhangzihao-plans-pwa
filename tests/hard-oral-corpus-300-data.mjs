@@ -318,6 +318,14 @@ export function countAnomalies(text) {
   return ANOMALY_MARKERS.filter((marker) => marker.test(text)).length;
 }
 
+export function countAnomalyOccurrences(text) {
+  return ANOMALY_MARKERS.reduce((total, marker) => {
+    const source = marker.source;
+    const matches = String(text).match(new RegExp(source, "gu")) || [];
+    return total + matches.length;
+  }, 0);
+}
+
 function countOccurrences(text, token) {
   let count = 0;
   let cursor = 0;

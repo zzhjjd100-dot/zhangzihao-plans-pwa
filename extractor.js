@@ -368,6 +368,10 @@ function sanitizePlanTitle(text) {
       /(?:那个|这个|就是|然后|其实|可能|应该|怎么说呢)[，,。；;\s]*$/gu,
       ""
     )
+    .replace(
+      /(?:嗯+|啊+|呃+|那个|这个|就是|然后|其实|可能|应该|怎么说呢)/gu,
+      ""
+    )
     .replace(/[，,。；;、：:…]+/gu, "")
     .replace(/\s+/gu, "")
     .replace(/和$/u, "")

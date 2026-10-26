@@ -23,7 +23,7 @@ import {
   refineSpeechTranscript
 } from "./speech-text.js";
 
-const APP_VERSION = "1.13.1";
+const APP_VERSION = "1.13.2";
 
 const elements = {
   header: document.querySelector("#appHeader"),
