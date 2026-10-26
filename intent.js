@@ -48,7 +48,7 @@ export function extractPlannerInput(rawText, options = {}) {
     cleanGrammarGlitches(String(rawText || ""))
   );
   const events = detectImportantEvents(cleaned, referenceDate);
-  const segments = findScopeSegments(cleaned);
+  const segments = splitMixedSegments(findScopeSegments(cleaned));
   const segmentResults = segments.map((segment) =>
     extractPlans(segment.text, {
       ...options,
@@ -192,6 +192,46 @@ function findScopeSegments(text) {
   return segments.length ? segments : [{ start: 0, scope: null, basis: null, text }];
 }
 
+function splitMixedSegments(segments) {
+  const expanded = [];
+  for (const segment of segments) {
+    if (!segment.scope) {
+      expanded.push(segment);
+      continue;
+    }
+    const parts = splitAtTaskDate(segment.text);
+    if (parts.length <= 1) {
+      expanded.push(segment);
+      continue;
+    }
+    let cursor = segment.start;
+    parts.forEach((part, index) => {
+      expanded.push({
+        start: cursor,
+        scope: index === 0 ? segment.scope : null,
+        basis: index === 0 ? segment.basis : null,
+        text: part
+      });
+      cursor += part.length;
+    });
+  }
+  return expanded;
+}
+
+function splitAtTaskDate(text) {
+  const pattern =
+    /(?=(?:今天|明天|后天|大后天|明晚|今晚|下周[一二三四五六日天]|下星期[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天]|\d{1,2}月\d{1,2}(?:日|号)))/gu;
+  const parts = [];
+  let cursor = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index === 0) continue;
+    if (match.index > cursor) parts.push(text.slice(cursor, match.index));
+    cursor = match.index;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts.length ? parts : [text];
+}
+
 export function cleanGrammarGlitches(text) {
   const protectedText = String(text || "").replace(/在那之前/g, "\u0001");
   return protectedText
@@ -245,11 +285,10 @@ export function detectImportantEvents(text, referenceDate = new Date()) {
   const events = [];
   for (const match of text.matchAll(EVENT_DATE_PATTERN)) {
     const dateText = match[0];
-    const immediateEnd = findImmediateClauseEnd(
-      text,
-      match.index + dateText.length
+    const immediateClause = text.slice(
+      match.index,
+      Math.min(text.length, match.index + 12)
     );
-    const immediateClause = text.slice(match.index, immediateEnd);
     if (!EVENT_CUE_PATTERN.test(immediateClause)) continue;
 
     const clauseEnd = findClauseEnd(text, match.index + dateText.length);

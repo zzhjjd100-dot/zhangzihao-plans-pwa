@@ -1,18 +1,19 @@
 {
   "name": "zhangzihao-plans-pwa",
-  "version": "1.13.2",
+  "version": "1.13.3",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4173",
     "test": "TZ=Asia/Shanghai node --test tests/*.test.mjs",
-    "test:core": "TZ=Asia/Shanghai node --test tests/periods.test.mjs tests/intent.test.mjs tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs tests/extractor.test.mjs tests/store.test.mjs",
-    "test:corpus": "TZ=Asia/Shanghai node --test tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs",
+    "test:core": "TZ=Asia/Shanghai node --test tests/periods.test.mjs tests/intent.test.mjs tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs tests/no-punct-oral-corpus-100.test.mjs tests/extractor.test.mjs tests/store.test.mjs",
+    "test:corpus": "TZ=Asia/Shanghai node --test tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs tests/no-punct-oral-corpus-100.test.mjs",
     "test:dialogues": "TZ=Asia/Shanghai node --test tests/dialogue-corpus.test.mjs",
     "test:interview-dialogues": "TZ=Asia/Shanghai node --test tests/interview-dialogue-corpus.test.mjs",
     "test:oral-plans": "TZ=Asia/Shanghai node --test tests/oral-plan-corpus-300.test.mjs",
     "test:hard-oral-plans": "TZ=Asia/Shanghai node --test tests/hard-oral-corpus-300.test.mjs",
     "test:composite-oral-plans": "TZ=Asia/Shanghai node --test tests/composite-oral-corpus-400.test.mjs",
+    "test:no-punct-oral-plans": "TZ=Asia/Shanghai node --test tests/no-punct-oral-corpus-100.test.mjs",
     "test:pwa": "node --test tests/pwa.test.mjs",
     "test:rounds": "./tests/run_three_rounds.sh"
   }

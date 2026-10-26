@@ -10,7 +10,7 @@ mkdir -p "$RESULTS"
 cd "$ROOT"
 
 echo "Round 1: extraction, speech pipeline, sorting, persistence"
-TZ=Asia/Shanghai node --test tests/periods.test.mjs tests/intent.test.mjs tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs tests/extractor.test.mjs tests/store.test.mjs \
+TZ=Asia/Shanghai node --test tests/periods.test.mjs tests/intent.test.mjs tests/corpus.test.mjs tests/dialogue-corpus.test.mjs tests/interview-dialogue-corpus.test.mjs tests/oral-plan-corpus-300.test.mjs tests/hard-oral-corpus-300.test.mjs tests/composite-oral-corpus-400.test.mjs tests/no-punct-oral-corpus-100.test.mjs tests/extractor.test.mjs tests/store.test.mjs \
   | tee "$RESULTS/round1.txt"
 
 echo "Round 2: PWA metadata, assets, HTTP delivery, responsive constraints"
