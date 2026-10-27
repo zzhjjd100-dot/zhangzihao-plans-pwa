@@ -26,7 +26,7 @@ test("does not drop conditional, person, deadline, or attachment details", () =>
   const text = "如果不方便就改成周四下午，但报告必须在周五前发给王老师，不能漏掉附件。";
   const result = extractPlans(text, { referenceDate });
   assert.equal(result.plans.length, 1);
-  for (const keyword of ["不方便", "周四", "周五", "王老师", "附件"]) {
+  for (const keyword of ["不方便", "王老师", "附件"]) {
     assert.ok(result.plans[0].text.includes(keyword), `missing ${keyword}`);
   }
   assert.equal(result.plans[0].importance, "high");
@@ -257,6 +257,40 @@ test("turns modal study statements into short verb-object plans", () => {
   }
 });
 
+test("removes schedule time from titles while keeping intrinsic duration and frequency", () => {
+  const cases = [
+    ["今天下午三点提交项目报告", "提交项目报告"],
+    ["明天晚上练琴30分钟", "练琴30分钟"],
+    ["周三跑步五公里", "跑步五公里"],
+    ["睡前复习语文古诗词", "复习语文古诗词"],
+    ["每周跑步三次每次30分钟", "每周跑步三次每次30分钟"]
+  ];
+  for (const [text, expected] of cases) {
+    const result = extractPlans(text, { referenceDate });
+    assert.deepEqual(result.plans.map((plan) => plan.text), [expected]);
+  }
+});
+
+test("never leaves calendar dates, weekdays, day parts, or clock times in titles", () => {
+  const samples = [
+    "明天上午背单词下午做阅读",
+    "周一改稿周三计时周五录像",
+    "今天睡前复习古诗",
+    "周四下午三点和客户开会",
+    "周末检查错题",
+    "每天晚上拉伸十分钟"
+  ];
+  const forbidden =
+    /(?:今天|明天|后天|周一|周二|周三|周四|周五|周六|周日|星期[一二三四五六日天]|周末|上午|下午|中午|晚上|早上|睡前|\d{1,2}[:：]\d{1,2}|\d{1,2}(?:点|时))/u;
+  for (const text of samples) {
+    const result = extractPlans(text, { referenceDate });
+    assert.ok(result.plans.length > 0, text);
+    for (const plan of result.plans) {
+      assert.ok(!forbidden.test(plan.text), `${plan.text} still contains schedule time`);
+    }
+  }
+});
+
 test("extracts a long study list with clean titles and scoped importance", () => {
   const text = "今天要把英语单词英语作文，英语卷子还有英语听说给作文然后把语文的半张卷子和反相册试给做完还有化学的错题做完复习生物的第五单元然后，完成生物作业，睡前复习一点，语文古诗词，这个不重要，前面的所有都很重要，这句话识别结果非常糟糕，重要性也没有识别出来，罗列出来的计划里还有逗号，语音识别精度也有问题，连计划都不是单纯的名词短语或动宾短语，问题非常多，需要大调整，我很生气";
   const result = extractPlans(text, { referenceDate });
@@ -273,7 +307,7 @@ test("extracts a long study list with clean titles and scoped importance", () =>
       "完成化学错题",
       "复习生物第五单元",
       "完成生物作业",
-      "睡前复习语文古诗词"
+      "复习语文古诗词"
     ]
   );
   assert.deepEqual(
@@ -338,7 +372,7 @@ test("keeps bedtime review separate from the preceding biology homework", () => 
       "完成化学错题",
       "复习生物第五单元",
       "完成生物作业",
-      "睡前复习语文古诗词"
+      "复习语文古诗词"
     ]
   );
   assert.equal(result.plans.at(-1).importance, "low");
@@ -360,7 +394,7 @@ test("formalizes the latest study list and keeps the full after-school object", 
       "完成化学错题",
       "复习生物第五单元",
       "完成生物作业",
-      "睡前复习语文古诗词",
+      "复习语文古诗词",
       "完成数学课外班作业"
     ]
   );

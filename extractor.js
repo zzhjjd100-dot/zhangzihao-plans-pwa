@@ -55,7 +55,8 @@ const ACTION_CUES = [
 const AUTONOMOUS_TASKS = [
   "开会", "面试", "考试", "体检", "复盘", "汇报", "培训", "复诊",
   "上班", "休息", "运动", "锻炼", "跑步", "慢跑", "游泳", "骑行",
-  "跳绳", "瑜伽", "拉伸", "热身", "快走", "睡觉", "深蹲", "平板支撑"
+  "跳绳", "瑜伽", "拉伸", "热身", "快走", "睡觉", "深蹲", "平板支撑",
+  "跟读", "练习", "检查", "选片", "改稿", "计时", "录像", "模拟"
 ];
 
 const STUDY_SUBJECTS = [
@@ -358,7 +359,7 @@ function rewriteDialogueQuestion(text) {
 }
 
 function sanitizePlanTitle(text) {
-  return String(text || "")
+  return stripPlanTimeExpressions(String(text || ""))
     .replace(/(?:一点|一下)/gu, "")
     .replace(
       /^(?:那个|这个|就是|然后|其实|可能|应该|怎么说呢)[，,。；;\s]*/gu,
@@ -376,6 +377,24 @@ function sanitizePlanTitle(text) {
     .replace(/\s+/gu, "")
     .replace(/和$/u, "")
     .trim();
+}
+
+function stripPlanTimeExpressions(text) {
+  const calendarExpression =
+    /(?:在|于|到)?\s*(?:(?:\d{4}年)?(?:\d{1,2}月\d{1,2}(?:日|号)?)|今天|明天|后天|大后天|昨天|前天|明晚|今晚|本周|这周|下周|下星期|周末|周[一二三四五六日天]|星期[一二三四五六日天])(?:的)?\s*(?:凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|睡前|起床后|饭前|饭后)?\s*(?:前|之前|以前)?/gu;
+  const clockExpression =
+    /(?:凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|睡前|起床后|饭前|饭后)?\s*(?:(?:\d{1,2}[:：]\d{1,2})|(?:\d{1,2}|[一二三四五六七八九十两]{1,3})(?:点|时)(?:\d{1,2}分?|[一二三四五六七八九十两]{1,3}分?)?)\s*(?:前|之前|以前)?/gu;
+  const dayPartExpression =
+    /(?:在|于|到)?\s*(?:凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|睡前|起床后|饭前|饭后)\s*/gu;
+
+  return String(text || "")
+    .replace(calendarExpression, "")
+    .replace(clockExpression, "")
+    .replace(dayPartExpression, "")
+    .replace(/^(?:记得|别忘了|提醒我|帮我|请)\s*/u, "")
+    .replace(/^(?:我|你|他|她)?\s*(?:要|需要|得|必须)\s*/u, "")
+    .replace(/^[，,：:\s]+|[，,：:\s]+$/gu, "")
+    .replace(/\s+/gu, "");
 }
 
 function splitIntoFragments(text) {
