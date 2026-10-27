@@ -1,4 +1,4 @@
-const CACHE_NAME = "zhangzihao-plans-v1.13.3";
+const CACHE_NAME = "zhangzihao-plans-v1.14.0";
 const APP_SHELL = [
   "./",
   "./index.html",

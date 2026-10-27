@@ -1,22 +1,22 @@
-✔ manifest declares an installable dark standalone PWA (0.937292ms)
-✔ HTML includes iOS standalone metadata and required controls (0.270292ms)
-✔ service worker caches the full local app shell (0.100209ms)
-✔ speech has Web Speech support and keyboard dictation fallback (0.230083ms)
-✔ UI fonts stay compact and cards limit home lines (0.439292ms)
-✔ PWA icons are valid PNGs with expected dimensions (0.639ms)
-✔ local date and task persistence code is included (0.209083ms)
-✔ review screen receives and displays the generated overview (0.423666ms)
-✔ home day cards can collapse to high-priority items only (0.145791ms)
-✔ no-plan extraction displays the notice and clears the draft (0.174417ms)
-✔ homepage title shows the current app version in small text (0.227208ms)
-✔ wires big plans, important dates, scope controls, and quick completion (0.155625ms)
-✔ adds a comma after a long pause (0.363625ms)
-✔ pause punctuation window is one second (0.079375ms)
-✔ adds a comma before a restarted recognition segment (0.043834ms)
-✔ does not duplicate existing punctuation (0.043584ms)
-✔ chooses the most task-like speech alternative (0.206208ms)
-✔ repairs common study-term speech recognition errors (0.310458ms)
-✔ does not append a repeated recognition result (0.045292ms)
+✔ manifest declares an installable dark standalone PWA (1.074458ms)
+✔ HTML includes iOS standalone metadata and required controls (0.327916ms)
+✔ service worker caches the full local app shell (0.111542ms)
+✔ speech has Web Speech support and keyboard dictation fallback (0.22875ms)
+✔ UI fonts stay compact and cards limit home lines (0.513042ms)
+✔ PWA icons are valid PNGs with expected dimensions (0.700125ms)
+✔ local date and task persistence code is included (0.17425ms)
+✔ review screen receives and displays the generated overview (0.114958ms)
+✔ home day cards can collapse to high-priority items only (0.185459ms)
+✔ no-plan extraction displays the notice and clears the draft (0.193291ms)
+✔ homepage title shows the current app version in small text (0.251834ms)
+✔ wires big plans, important dates, scope controls, and quick completion (0.165834ms)
+✔ adds a comma after a long pause (0.417917ms)
+✔ pause punctuation window is one second (0.089083ms)
+✔ adds a comma before a restarted recognition segment (0.045125ms)
+✔ does not duplicate existing punctuation (0.047708ms)
+✔ chooses the most task-like speech alternative (0.222458ms)
+✔ repairs common study-term speech recognition errors (0.313375ms)
+✔ does not append a repeated recognition result (0.045375ms)
 ℹ tests 19
 ℹ suites 0
 ℹ pass 19
@@ -24,7 +24,7 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 35.3845
+ℹ duration_ms 37.85075
 present index.html
 present styles.css
 present app.js

@@ -965,7 +965,7 @@ function isNonActionableNarration(text) {
     return true;
   }
   if (
-    /(?:有重要事件|重要事件|重要日子|是.{0,8}(?:生日|考试|面试|答辩|比赛|发布会|评审|纪念日))/u.test(compact)
+    /(?:有重要事件|有重要的事|重要事件|重要事情|重要日子|是.{0,8}(?:生日|考试|面试|答辩|比赛|发布会|评审|纪念日))/u.test(compact)
   ) {
     return true;
   }

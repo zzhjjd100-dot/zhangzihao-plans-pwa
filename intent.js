@@ -38,7 +38,7 @@ const EVENT_DATE_PATTERN =
   /(?:\d{4}年)?(?:\d{1,2}月\d{1,2}(?:日|号)|今天|明天|后天|大后天|下周[一二三四五六日天]|下星期[一二三四五六日天]|本周[一二三四五六日天]|这周[一二三四五六日天]|周[一二三四五六日天]|星期[一二三四五六日天])/gu;
 
 const EVENT_CUE_PATTERN =
-  /(?:重要事件|重要日子|截止日期|截止日|生日|纪念日|考试|面试|婚礼|发布会|答辩|比赛|体检|报名截止|提交截止|项目评审|活动日)/u;
+  /(?:重要事件|重要的事|重要事情|重要日子|截止日期|截止日|截止|生日|纪念日|考试|面试|婚礼|发布会|答辩|比赛|体检|报名截止|提交截止|项目评审|项目验收|家长会|演出|演唱会|毕业典礼|签约|活动日)/u;
 
 export function extractPlannerInput(rawText, options = {}) {
   const referenceDate = options.referenceDate
@@ -238,7 +238,7 @@ export function cleanGrammarGlitches(text) {
     .replace(
       /(^|[，,。；;])([^，,。；;]{1,24}?)[，,]\s*不是[，,]\s*/gu,
       (_, separator, segment) =>
-        segment.includes("\u0001") ? `${separator}\u0001` : "，"
+        segment.includes("\u0001") ? `${separator || ""}\u0001` : "，"
     )
     .replace(/^[，,\s]+/u, "")
     .replace(/(然后|就是|这个|那个|其实|可能|应该|要|把|给)\1+/gu, "$1")
@@ -325,7 +325,7 @@ function findImmediateClauseEnd(text, start) {
 function normalizeEventTitle(text) {
   return String(text || "")
     .replace(/^[，,：:\s]*(?:有|是|为|安排了|将在|定在)?\s*/u, "")
-    .replace(/(?:重要事件|重要日子|截止日期|截止日)[：:，,\s]*/gu, "")
+    .replace(/(?:重要事件|重要的事|重要事情|重要日子|截止日期|截止日)[：:，,\s]*/gu, "")
     .replace(/(?:这个|这件事)?(?:真的|很|非常|特别)?重要[。！!，,\s]*/gu, "")
     .replace(/(?:那个|这个|就是|然后|其实|可能|应该|怎么说呢|嗯+|啊+)/gu, "")
     .replace(/[，,。；;：:\s]+$/gu, "")
